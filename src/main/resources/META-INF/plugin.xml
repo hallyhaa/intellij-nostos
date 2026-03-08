@@ -1,0 +1,28 @@
+<idea-plugin>
+    <id>com.github.hallyhaa.intellijnostos</id>
+    <name>Nostos</name>
+    <vendor url="https://github.com/hallyhaa/intellij-nostos">Hallvard Ystad</vendor>
+
+    <description><![CDATA[
+    Language support for <a href="https://github.com/pegesund/nostos">Nostos</a>,
+    a functional-first programming language with lightweight concurrency,
+    pattern matching, and non-blocking I/O.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType
+            name="Nostos"
+            implementationClass="com.github.hallyhaa.intellijnostos.NostosFileType"
+            fieldName="INSTANCE"
+            language="Nostos"
+            extensions="nos"/>
+        <lang.parserDefinition
+            language="Nostos"
+            implementationClass="com.github.hallyhaa.intellijnostos.NostosParserDefinition"/>
+        <lang.syntaxHighlighterFactory
+            language="Nostos"
+            implementationClass="com.github.hallyhaa.intellijnostos.NostosSyntaxHighlighterFactory"/>
+    </extensions>
+</idea-plugin>
