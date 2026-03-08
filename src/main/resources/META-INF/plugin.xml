@@ -1,5 +1,5 @@
 <idea-plugin>
-    <id>com.github.hallyhaa.intellijnostos</id>
+    <id>org.babelserver.intellijnostos</id>
     <name>Nostos</name>
     <vendor url="https://github.com/hallyhaa/intellij-nostos">Hallvard Ystad</vendor>
 
@@ -14,15 +14,15 @@
     <extensions defaultExtensionNs="com.intellij">
         <fileType
             name="Nostos"
-            implementationClass="com.github.hallyhaa.intellijnostos.NostosFileType"
+            implementationClass="org.babelserver.intellijnostos.NostosFileType"
             fieldName="INSTANCE"
             language="Nostos"
             extensions="nos"/>
         <lang.parserDefinition
             language="Nostos"
-            implementationClass="com.github.hallyhaa.intellijnostos.NostosParserDefinition"/>
+            implementationClass="org.babelserver.intellijnostos.NostosParserDefinition"/>
         <lang.syntaxHighlighterFactory
             language="Nostos"
-            implementationClass="com.github.hallyhaa.intellijnostos.NostosSyntaxHighlighterFactory"/>
+            implementationClass="org.babelserver.intellijnostos.NostosSyntaxHighlighterFactory"/>
     </extensions>
 </idea-plugin>

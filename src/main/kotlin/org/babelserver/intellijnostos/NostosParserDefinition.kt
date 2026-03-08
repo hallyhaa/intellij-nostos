@@ -1,4 +1,4 @@
-package com.github.hallyhaa.intellijnostos
+package org.babelserver.intellijnostos
 
 import com.intellij.lang.ASTNode
 import com.intellij.lang.ParserDefinition
@@ -11,19 +11,17 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.tree.IFileElementType
 import com.intellij.psi.tree.TokenSet
 
-class NostosParserDefinition : ParserDefinition {
-    companion object {
-        val FILE = IFileElementType(NostosLanguage)
-        val COMMENTS = TokenSet.create(
-            NostosTokenTypes.COMMENT,
-            NostosTokenTypes.BLOCK_COMMENT
-        )
-        val STRINGS = TokenSet.create(
-            NostosTokenTypes.STRING,
-            NostosTokenTypes.CHAR
-        )
-    }
+private val FILE = IFileElementType(NostosLanguage)
+private val COMMENTS = TokenSet.create(
+    NostosTokenTypes.COMMENT,
+    NostosTokenTypes.BLOCK_COMMENT
+)
+private val STRINGS = TokenSet.create(
+    NostosTokenTypes.STRING,
+    NostosTokenTypes.CHAR
+)
 
+class NostosParserDefinition : ParserDefinition {
     override fun createLexer(project: Project?): Lexer = NostosLexer()
 
     override fun createParser(project: Project?): PsiParser =

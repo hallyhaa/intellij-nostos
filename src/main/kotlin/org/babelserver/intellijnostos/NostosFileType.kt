@@ -1,4 +1,4 @@
-package com.github.hallyhaa.intellijnostos
+package org.babelserver.intellijnostos
 
 import com.intellij.openapi.fileTypes.LanguageFileType
 import javax.swing.Icon

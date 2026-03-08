@@ -1,4 +1,4 @@
-package com.github.hallyhaa.intellijnostos
+package org.babelserver.intellijnostos
 
 import com.intellij.lexer.Lexer
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
@@ -11,6 +11,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.tree.IElementType
 
 class NostosSyntaxHighlighter : SyntaxHighlighterBase() {
+
     companion object {
         val COMMENT_KEYS = arrayOf(
             TextAttributesKey.createTextAttributesKey(

@@ -1,4 +1,4 @@
-package com.github.hallyhaa.intellijnostos
+package org.babelserver.intellijnostos
 
 import com.intellij.lexer.LexerBase
 import com.intellij.psi.tree.IElementType
@@ -94,43 +94,46 @@ class NostosLexer : LexerBase() {
     }
 
     private fun lexNumber() {
-        if (buffer[position] == '0' && position + 1 < endOffset) {
-            val next = buffer[position + 1]
-            if (next == 'x' || next == 'X' || next == 'b' || next == 'B') {
-                position += 2
-                while (position < endOffset &&
-                    (buffer[position].isLetterOrDigit()
-                        || buffer[position] == '_')
-                ) position++
-                tokenEnd = position
-                tokenType = NostosTokenTypes.NUMBER
-                return
-            }
-        }
-        while (position < endOffset &&
-            (buffer[position].isDigit() || buffer[position] == '_')
-        ) position++
-        if (position < endOffset && buffer[position] == '.'
-            && position + 1 < endOffset && buffer[position + 1].isDigit()
-        ) {
-            position++
-            while (position < endOffset &&
-                (buffer[position].isDigit() || buffer[position] == '_')
-            ) position++
-        }
-        if (position < endOffset &&
-            (buffer[position] == 'e' || buffer[position] == 'E')
-        ) {
-            position++
-            if (position < endOffset &&
-                (buffer[position] == '+' || buffer[position] == '-')
-            ) position++
-            while (position < endOffset && buffer[position].isDigit())
-                position++
-        }
+        if (tryLexPrefixedNumber()) return
+        skipDigitsAndUnderscores()
+        tryLexFractionalPart()
+        tryLexExponent()
         if (position < endOffset && buffer[position] == 'd') position++
         tokenEnd = position
         tokenType = NostosTokenTypes.NUMBER
+    }
+
+    private fun tryLexPrefixedNumber(): Boolean {
+        if (buffer[position] != '0' || position + 1 >= endOffset) return false
+        val next = buffer[position + 1]
+        if (next !in "xXbB") return false
+        position += 2
+        while (position < endOffset &&
+            (buffer[position].isLetterOrDigit() || buffer[position] == '_')
+        ) position++
+        tokenEnd = position
+        tokenType = NostosTokenTypes.NUMBER
+        return true
+    }
+
+    private fun skipDigitsAndUnderscores() {
+        while (position < endOffset &&
+            (buffer[position].isDigit() || buffer[position] == '_')
+        ) position++
+    }
+
+    private fun tryLexFractionalPart() {
+        if (position >= endOffset || buffer[position] != '.') return
+        if (position + 1 >= endOffset || !buffer[position + 1].isDigit()) return
+        position++
+        skipDigitsAndUnderscores()
+    }
+
+    private fun tryLexExponent() {
+        if (position >= endOffset || buffer[position] !in "eE") return
+        position++
+        if (position < endOffset && buffer[position] in "+-") position++
+        while (position < endOffset && buffer[position].isDigit()) position++
     }
 
     private fun lexIdentifierOrKeyword() {

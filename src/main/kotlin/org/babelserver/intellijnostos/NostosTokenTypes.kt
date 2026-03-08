@@ -1,4 +1,4 @@
-package com.github.hallyhaa.intellijnostos
+package org.babelserver.intellijnostos
 
 import com.intellij.psi.tree.IElementType
 
@@ -44,4 +44,5 @@ object NostosTokenTypes {
         "self" to KEYWORD,
         "reactive" to KEYWORD,
     )
+
 }

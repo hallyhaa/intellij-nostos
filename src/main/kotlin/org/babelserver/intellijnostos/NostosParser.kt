@@ -1,4 +1,4 @@
-package com.github.hallyhaa.intellijnostos
+package org.babelserver.intellijnostos
 
 import com.intellij.lang.ASTNode
 import com.intellij.lang.PsiBuilder
@@ -6,6 +6,7 @@ import com.intellij.lang.PsiParser
 import com.intellij.psi.tree.IElementType
 
 class NostosParser : PsiParser {
+
     override fun parse(root: IElementType, builder: PsiBuilder): ASTNode {
         val rootMarker = builder.mark()
         while (!builder.eof()) {
@@ -14,4 +15,5 @@ class NostosParser : PsiParser {
         rootMarker.done(root)
         return builder.treeBuilt
     }
+
 }
