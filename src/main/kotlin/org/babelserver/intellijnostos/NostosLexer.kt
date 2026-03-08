@@ -62,8 +62,11 @@ class NostosLexer : LexerBase() {
 
     private fun lexBlockComment() {
         position += 2
-        while (position + 1 < endOffset) {
-            if (buffer[position] == '*' && buffer[position + 1] == '#') {
+        while (position < endOffset) {
+            if (position + 1 < endOffset
+                && buffer[position] == '*'
+                && buffer[position + 1] == '#'
+            ) {
                 position += 2
                 break
             }
@@ -170,7 +173,8 @@ class NostosLexer : LexerBase() {
                 .toString()
             if (twoChar in setOf(
                     "++", "::", "->", "<-", "<=", ">=",
-                    "==", "!=", "&&", "||", "**", "+="
+                    "==", "!=", "&&", "||", "**", "+=",
+                    "=>", "|>", "-=", "*=", "/="
                 )
             ) {
                 position++
