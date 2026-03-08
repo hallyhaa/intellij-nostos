@@ -143,7 +143,17 @@ class NostosLexer : LexerBase() {
         tokenEnd = position
         val text = buffer.subSequence(tokenStart, tokenEnd).toString()
         tokenType = NostosTokenTypes.KEYWORDS[text]
-            ?: NostosTokenTypes.IDENTIFIER
+            ?: when {
+                buffer[tokenStart].isUpperCase() -> NostosTokenTypes.TYPE_NAME
+                nextNonWhitespaceIs('(') -> NostosTokenTypes.FUNCTION_NAME
+                else -> NostosTokenTypes.IDENTIFIER
+            }
+    }
+
+    private fun nextNonWhitespaceIs(expected: Char): Boolean {
+        var i = position
+        while (i < endOffset && buffer[i] == ' ') i++
+        return i < endOffset && buffer[i] == expected
     }
 
     private fun lexWhitespace() {

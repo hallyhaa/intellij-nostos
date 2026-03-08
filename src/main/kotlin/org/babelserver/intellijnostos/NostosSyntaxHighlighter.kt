@@ -49,6 +49,18 @@ class NostosSyntaxHighlighter : SyntaxHighlighterBase() {
                 DefaultLanguageHighlighterColors.IDENTIFIER
             )
         )
+        val TYPE_NAME_KEYS = arrayOf(
+            TextAttributesKey.createTextAttributesKey(
+                "NOSTOS_TYPE_NAME",
+                DefaultLanguageHighlighterColors.CLASS_NAME
+            )
+        )
+        val FUNCTION_NAME_KEYS = arrayOf(
+            TextAttributesKey.createTextAttributesKey(
+                "NOSTOS_FUNCTION_NAME",
+                DefaultLanguageHighlighterColors.FUNCTION_CALL
+            )
+        )
         val OPERATOR_KEYS = arrayOf(
             TextAttributesKey.createTextAttributesKey(
                 "NOSTOS_OPERATOR",
@@ -76,6 +88,8 @@ class NostosSyntaxHighlighter : SyntaxHighlighterBase() {
         NostosTokenTypes.NUMBER -> NUMBER_KEYS
         NostosTokenTypes.KEYWORD -> KEYWORD_KEYS
         NostosTokenTypes.IDENTIFIER -> IDENTIFIER_KEYS
+        NostosTokenTypes.TYPE_NAME -> TYPE_NAME_KEYS
+        NostosTokenTypes.FUNCTION_NAME -> FUNCTION_NAME_KEYS
         NostosTokenTypes.OPERATOR -> OPERATOR_KEYS
         else -> EMPTY_KEYS
     }
