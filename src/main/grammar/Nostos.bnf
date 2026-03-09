@@ -136,10 +136,228 @@
   ]
 }
 
-// Minimal grammar — will be expanded in Task 6 with full Nostos grammar
-nostosFile ::= expr*
+// ===== File =====
 
-expr ::= literal_expr | ref_expr
+nostosFile ::= item*
 
-literal_expr ::= NUMBER | STRING | CHAR | TRUE | FALSE
-ref_expr ::= IDENTIFIER | FUNCTION_NAME | TYPE_NAME
+private item ::= module_decl
+               | type_decl
+               | fn_decl
+               | trait_decl
+               | use_decl
+               | test_decl
+               | extern_decl
+               | var_decl
+               | mvar_decl
+               | const_decl
+               | expr
+
+// ===== Identifier helpers =====
+
+private ident ::= IDENTIFIER | FUNCTION_NAME
+private any_ident ::= IDENTIFIER | FUNCTION_NAME | TYPE_NAME
+
+// ===== Top-level declarations =====
+
+module_decl ::= MODULE_KW TYPE_NAME
+
+visibility ::= PUB | PRIVATE
+
+fn_decl ::= visibility? FN ident '(' param_list? ')' [':' type_ref] '=' expr
+
+param ::= ident [':' type_ref]
+param_list ::= param (',' param)*
+
+type_decl ::= visibility? TYPE_KW TYPE_NAME type_params? '=' type_body {pin='TYPE_KW'}
+
+type_params ::= '[' TYPE_NAME (',' TYPE_NAME)* ']'
+
+type_body ::= type_variant ('|' type_variant)* [DERIVING derive_list]
+type_variant ::= TYPE_NAME ['(' type_ref_list ')'] | record_type_body
+record_type_body ::= '{' field_type (',' field_type)* '}'
+derive_list ::= TYPE_NAME (',' TYPE_NAME)*
+
+trait_decl ::= visibility? TRAIT TYPE_NAME type_params? '=' trait_member* END {pin='TRAIT'}
+trait_member ::= fn_decl
+
+use_decl ::= USE use_path [FROM string_expr] [AS ident] {pin='USE'}
+use_path ::= any_ident ('.' any_ident)*
+
+test_decl ::= TEST string_expr block_expr {pin='TEST'}
+
+extern_decl ::= EXTERN FN ident '(' param_list? ')' ':' type_ref {pin='EXTERN'}
+
+var_decl ::= VAR ident [':' type_ref] '=' expr {pin='VAR'}
+mvar_decl ::= MVAR ident [':' type_ref] '=' expr {pin='MVAR'}
+const_decl ::= CONST ident [':' type_ref] '=' expr {pin='CONST'}
+
+// ===== Expressions =====
+// Order determines precedence: first alternative = lowest precedence.
+// Grammar-Kit extends(".*_expr") = expr generates Pratt parser.
+
+expr ::= assign_group_expr
+       | send_expr
+       | pipe_pipe_expr
+       | amp_amp_expr
+       | eq_group_expr
+       | comp_group_expr
+       | range_expr
+       | cons_expr
+       | pipe_gt_expr
+       | add_group_expr
+       | mul_group_expr
+       | power_expr
+       | prefix_expr
+       | dot_expr
+       | call_expr
+       | index_expr
+       | primary_group
+
+// Binary expressions (lowest to highest precedence)
+assign_group_expr ::= expr ('=' | '+=' | '-=' | '*=' | '/=') expr  {rightAssociative=true}
+send_expr         ::= expr '<-' expr                                {rightAssociative=true}
+pipe_pipe_expr    ::= expr '||' expr
+amp_amp_expr      ::= expr '&&' expr
+eq_group_expr     ::= expr ('==' | '!=') expr
+comp_group_expr   ::= expr ('<' | '>' | '<=' | '>=') expr
+range_expr        ::= expr '..' expr
+cons_expr         ::= expr '::' expr                                {rightAssociative=true}
+pipe_gt_expr      ::= expr '|>' expr
+add_group_expr    ::= expr ('+' | '-' | '++') expr
+mul_group_expr    ::= expr ('*' | '/' | '%') expr
+power_expr        ::= expr '**' expr                                {rightAssociative=true}
+
+// Prefix
+prefix_expr ::= ('-' | '!' | '~') expr
+
+// Postfix
+dot_expr   ::= expr '.' ident
+call_expr  ::= expr '(' arg_list? ')'
+index_expr ::= expr '[' expr ']'
+
+arg_list ::= expr (',' expr)*
+
+// Primary expressions
+private primary_group ::= literal_expr
+                        | ref_expr
+                        | paren_expr
+                        | list_expr
+                        | record_expr
+                        | map_expr
+                        | set_expr
+                        | block_expr
+                        | if_expr
+                        | match_expr
+                        | try_expr
+                        | while_expr
+                        | for_expr
+                        | backslash_lambda_expr
+                        | fn_lambda_expr
+                        | spawn_expr
+                        | receive_expr
+                        | return_expr
+                        | throw_expr
+                        | break_expr
+                        | continue_expr
+                        | quote_expr
+                        | string_expr
+
+literal_expr ::= NUMBER | CHAR | TRUE | FALSE
+
+ref_expr ::= any_ident
+
+paren_expr ::= '(' ')' | '(' expr (',' expr)* ')'
+
+list_expr ::= '[' [expr (',' expr)*] ']'
+
+record_expr ::= '{' field_init (',' field_init)* '}'
+field_init ::= ident ('=' | ':') expr
+
+map_expr ::= '%{' [map_entry (',' map_entry)*] '}'
+map_entry ::= expr ('=>' | ':') expr
+
+set_expr ::= '#{' [expr (',' expr)*] '}'
+
+block_expr ::= '{' block_body '}'
+private block_body ::= expr (';' expr)*
+
+if_expr ::= IF expr THEN expr [ELSE expr] {pin='IF'}
+
+match_expr ::= MATCH expr WITH match_arm+ {pin='MATCH'}
+match_arm ::= '|' pattern [WHEN expr] ('=>' | '->') expr
+
+try_expr ::= TRY expr CATCH match_arm+ [FINALLY expr] {pin='TRY'}
+
+while_expr ::= WHILE expr DO expr {pin='WHILE'}
+
+for_expr ::= FOR pattern IN expr DO expr {pin='FOR'}
+
+backslash_lambda_expr ::= '\' lambda_params? '->' expr
+fn_lambda_expr ::= FN '(' param_list? ')' '->' expr
+
+lambda_params ::= ident (',' ident)*
+
+spawn_expr ::= (SPAWN | SPAWN_LINK | SPAWN_MONITOR) expr
+
+receive_expr ::= RECEIVE match_arm+ [AFTER expr '=>' expr] {pin='RECEIVE'}
+
+return_expr ::= RETURN expr?
+throw_expr ::= THROW expr
+break_expr ::= BREAK
+continue_expr ::= CONTINUE
+quote_expr ::= QUOTE block_expr
+
+// String with interpolation
+string_expr ::= string_part+
+private string_part ::= STRING | INTERPOLATION_START expr INTERPOLATION_END
+
+// ===== Patterns =====
+
+pattern ::= or_pattern
+or_pattern ::= guard_pattern ('|' guard_pattern)*
+guard_pattern ::= as_pattern [WHEN expr]
+as_pattern ::= cons_pattern [AS ident]
+cons_pattern ::= primary_pattern ('::' primary_pattern)?
+
+private primary_pattern ::= wildcard_pattern
+                           | literal_pattern
+                           | tuple_pattern
+                           | list_pattern
+                           | constructor_pattern
+                           | record_pattern
+                           | map_pattern
+                           | set_pattern
+                           | range_pattern
+                           | var_pattern
+
+wildcard_pattern ::= '_'
+var_pattern ::= IDENTIFIER
+literal_pattern ::= NUMBER | STRING | CHAR | TRUE | FALSE | MINUS NUMBER
+tuple_pattern ::= '(' [pattern_list] ')'
+list_pattern ::= '[' [pattern_list] ']'
+constructor_pattern ::= TYPE_NAME ['(' [pattern_list] ')']
+record_pattern ::= '{' [field_pattern (',' field_pattern)*] '}'
+field_pattern ::= ident ['=' pattern]
+map_pattern ::= '%{' [map_pattern_entry (',' map_pattern_entry)*] '}'
+map_pattern_entry ::= expr ('=>' | ':') pattern
+set_pattern ::= '#{' [pattern_list] '}'
+range_pattern ::= (NUMBER | CHAR) '..' (NUMBER | CHAR)
+
+pattern_list ::= pattern (',' pattern)*
+
+// ===== Type references =====
+// Named type_ref (not type_expr) to avoid matching extends(".*_expr") = expr
+
+private type_ref ::= function_type | primary_type_ref
+
+function_type ::= '(' [type_ref_list] ')' '->' type_ref
+
+private primary_type_ref ::= generic_type | tuple_type | record_type | simple_type
+
+generic_type ::= TYPE_NAME '[' type_ref_list ']'
+tuple_type ::= '(' type_ref ',' type_ref_list ')'
+record_type ::= '{' field_type (',' field_type)* '}'
+simple_type ::= TYPE_NAME | IDENTIFIER
+
+field_type ::= ident ':' type_ref
+type_ref_list ::= type_ref (',' type_ref)*
