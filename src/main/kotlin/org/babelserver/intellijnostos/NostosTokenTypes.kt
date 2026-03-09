@@ -3,16 +3,16 @@ package org.babelserver.intellijnostos
 import com.intellij.psi.tree.IElementType
 
 object NostosTokenTypes {
-    val COMMENT = IElementType("COMMENT", NostosLanguage)
-    val BLOCK_COMMENT = IElementType("BLOCK_COMMENT", NostosLanguage)
-    val STRING = IElementType("STRING", NostosLanguage)
-    val CHAR = IElementType("CHAR", NostosLanguage)
-    val NUMBER = IElementType("NUMBER", NostosLanguage)
-    val IDENTIFIER = IElementType("IDENTIFIER", NostosLanguage)
-    val TYPE_NAME = IElementType("TYPE_NAME", NostosLanguage)
-    val FUNCTION_NAME = IElementType("FUNCTION_NAME", NostosLanguage)
-    val OPERATOR = IElementType("OPERATOR", NostosLanguage)
-    val KEYWORD = IElementType("KEYWORD", NostosLanguage)
+    @JvmField val COMMENT = IElementType("COMMENT", NostosLanguage)
+    @JvmField val BLOCK_COMMENT = IElementType("BLOCK_COMMENT", NostosLanguage)
+    @JvmField val STRING = IElementType("STRING", NostosLanguage)
+    @JvmField val CHAR = IElementType("CHAR", NostosLanguage)
+    @JvmField val NUMBER = IElementType("NUMBER", NostosLanguage)
+    @JvmField val IDENTIFIER = IElementType("IDENTIFIER", NostosLanguage)
+    @JvmField val TYPE_NAME = IElementType("TYPE_NAME", NostosLanguage)
+    @JvmField val FUNCTION_NAME = IElementType("FUNCTION_NAME", NostosLanguage)
+    @JvmField val OPERATOR = IElementType("OPERATOR", NostosLanguage)
+    @JvmField val KEYWORD = IElementType("KEYWORD", NostosLanguage)
 
     val KEYWORDS = mapOf(
         "if" to KEYWORD,
