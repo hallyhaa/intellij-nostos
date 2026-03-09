@@ -4,7 +4,7 @@ import com.intellij.lexer.FlexLexer;
 import com.intellij.psi.tree.IElementType;
 import static com.intellij.psi.TokenType.BAD_CHARACTER;
 import static com.intellij.psi.TokenType.WHITE_SPACE;
-import static org.babelserver.intellijnostos.NostosTokenTypes.*;
+import static org.babelserver.intellijnostos.psi.NostosTypes.*;
 
 %%
 
@@ -30,17 +30,56 @@ import static org.babelserver.intellijnostos.NostosTokenTypes.*;
     private IElementType identifierOrKeyword(boolean beforeParen) {
         String text = yytext().toString();
         switch (text) {
-            case "if": case "then": case "else": case "match": case "with":
-            case "type": case "trait": case "end": case "use": case "pub":
-            case "private": case "module": case "import": case "var": case "mvar":
-            case "const": case "for": case "to": case "while": case "do":
-            case "break": case "continue": case "return": case "spawn":
-            case "spawn_link": case "spawn_monitor": case "receive": case "after":
-            case "try": case "catch": case "finally": case "throw": case "panic":
-            case "when": case "true": case "false": case "self": case "Self":
-            case "reactive": case "deriving": case "where": case "forall":
-            case "extern": case "test": case "quote": case "from":
-                return KEYWORD;
+            case "fn": return FN;
+            case "if": return IF;
+            case "then": return THEN;
+            case "else": return ELSE;
+            case "match": return MATCH;
+            case "with": return WITH;
+            case "type": return TYPE_KW;
+            case "trait": return TRAIT;
+            case "end": return END;
+            case "use": return USE;
+            case "pub": return PUB;
+            case "private": return PRIVATE;
+            case "module": return MODULE_KW;
+            case "import": return IMPORT;
+            case "var": return VAR;
+            case "mvar": return MVAR;
+            case "const": return CONST;
+            case "for": return FOR;
+            case "to": return TO;
+            case "in": return IN;
+            case "while": return WHILE;
+            case "do": return DO;
+            case "break": return BREAK;
+            case "continue": return CONTINUE;
+            case "return": return RETURN;
+            case "spawn": return SPAWN;
+            case "spawn_link": return SPAWN_LINK;
+            case "spawn_monitor": return SPAWN_MONITOR;
+            case "receive": return RECEIVE;
+            case "after": return AFTER;
+            case "try": return TRY;
+            case "catch": return CATCH;
+            case "finally": return FINALLY;
+            case "throw": return THROW;
+            case "panic": return PANIC;
+            case "when": return WHEN;
+            case "true": return TRUE;
+            case "false": return FALSE;
+            case "self": return SELF;
+            case "Self": return SELF_TYPE;
+            case "reactive": return REACTIVE;
+            case "deriving": return DERIVING;
+            case "where": return WHERE;
+            case "forall": return FORALL;
+            case "extern": return EXTERN;
+            case "test": return TEST;
+            case "quote": return QUOTE;
+            case "from": return FROM;
+            case "as": return AS;
+            case "_": return UNDERSCORE;
             default:
                 if (Character.isUpperCase(text.charAt(0))) {
                     return TYPE_NAME;
@@ -72,11 +111,6 @@ DecimalSuffix   = "d"
 FloatNumber     = {DecInteger} {FracPart} {Exponent}? {DecimalSuffix}?
                 | {DecInteger} {Exponent} {DecimalSuffix}?
                 | {DecInteger} {FracPart}? {DecimalSuffix}
-
-// Two-char operators
-TwoCharOp       = "++" | "::" | "->" | "<-" | "<=" | ">="
-                | "==" | "!=" | "&&" | "||" | "**" | "+="
-                | "=>" | "|>" | "-=" | "*=" | "/="
 
 %%
 
@@ -117,11 +151,14 @@ TwoCharOp       = "++" | "::" | "->" | "<-" | "<=" | ">="
     // Whitespace
     {WhiteSpace}+                   { return WHITE_SPACE; }
 
+    // Set literal start (must come before comment rules)
+    "#{"                            { return HASH_LBRACE; }
+
     // Block comment start
     "#*"                            { yybegin(S_BLOCK_COMMENT); return BLOCK_COMMENT; }
 
-    // Line comments (# followed by anything except *)
-    "#" [^*\r\n] [^\r\n]*          { return COMMENT; }
+    // Line comments (# followed by anything except * or {)
+    "#" [^*{\r\n] [^\r\n]*         { return COMMENT; }
     "#"                             { return COMMENT; }
 
     // String start
@@ -142,11 +179,50 @@ TwoCharOp       = "++" | "::" | "->" | "<-" | "<=" | ">="
     // Identifiers and keywords
     {Identifier}                    { return identifierOrKeyword(false); }
 
-    // Two-char operators (before single-char)
-    {TwoCharOp}                     { return OPERATOR; }
+    // Two-char operators (must come before single-char)
+    "++"                            { return PLUS_PLUS; }
+    "::"                            { return COLON_COLON; }
+    "->"                            { return ARROW; }
+    "<-"                            { return SEND_OP; }
+    "<="                            { return LE; }
+    ">="                            { return GE; }
+    "=="                            { return EQ_EQ; }
+    "!="                            { return BANG_EQ; }
+    "&&"                            { return AMP_AMP; }
+    "||"                            { return PIPE_PIPE; }
+    "**"                            { return STAR_STAR; }
+    "+="                            { return PLUS_EQ; }
+    "=>"                            { return FAT_ARROW; }
+    "|>"                            { return PIPE_GT; }
+    "-="                            { return MINUS_EQ; }
+    "*="                            { return STAR_EQ; }
+    "/="                            { return SLASH_EQ; }
+    ".."                            { return DOT_DOT; }
+    "%{"                            { return PERCENT_LBRACE; }
 
-    // Single-char operators and punctuation
-    [+\-*/%=<>!.|,;:@~\^&\?]       { return OPERATOR; }
+    // Single-char operators
+    "+"                             { return PLUS; }
+    "-"                             { return MINUS; }
+    "*"                             { return STAR; }
+    "/"                             { return SLASH; }
+    "%"                             { return PERCENT; }
+    "="                             { return EQ; }
+    "<"                             { return LT; }
+    ">"                             { return GT; }
+    "!"                             { return BANG; }
+    "."                             { return DOT; }
+    "|"                             { return PIPE; }
+    ","                             { return COMMA; }
+    ";"                             { return SEMICOLON; }
+    ":"                             { return COLON; }
+    "@"                             { return AT; }
+    "~"                             { return TILDE; }
+    "^"                             { return CARET; }
+    "&"                             { return AMP; }
+    "?"                             { return QUESTION; }
+    "\\"                            { return BACKSLASH; }
+
+    // Brackets
     "("                             { return LPAREN; }
     ")"                             { return RPAREN; }
     "["                             { return LBRACKET; }
