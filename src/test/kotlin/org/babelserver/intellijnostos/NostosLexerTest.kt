@@ -469,7 +469,12 @@ class NostosLexerTest {
     fun parenBracketBrace() {
         val tokens = tokenize("()[]{}")
         assertEquals(6, tokens.size)
-        tokens.forEach { assertEquals(NostosTokenTypes.OPERATOR, it.first) }
+        assertEquals(NostosTokenTypes.LPAREN, tokens[0].first)
+        assertEquals(NostosTokenTypes.RPAREN, tokens[1].first)
+        assertEquals(NostosTokenTypes.LBRACKET, tokens[2].first)
+        assertEquals(NostosTokenTypes.RBRACKET, tokens[3].first)
+        assertEquals(NostosTokenTypes.LBRACE, tokens[4].first)
+        assertEquals(NostosTokenTypes.RBRACE, tokens[5].first)
     }
 
     // ==================== Whitespace ====================
@@ -502,9 +507,9 @@ class NostosLexerTest {
     fun functionDefinition() {
         val tokens = tokenize("double(x) = x * 2")
         assertEquals(NostosTokenTypes.FUNCTION_NAME, tokens[0].first) // double
-        assertEquals(NostosTokenTypes.OPERATOR, tokens[1].first)      // (
+        assertEquals(NostosTokenTypes.LPAREN, tokens[1].first)        // (
         assertEquals(NostosTokenTypes.IDENTIFIER, tokens[2].first)    // x
-        assertEquals(NostosTokenTypes.OPERATOR, tokens[3].first)      // )
+        assertEquals(NostosTokenTypes.RPAREN, tokens[3].first)        // )
         assertEquals(NostosTokenTypes.OPERATOR, tokens[4].first)      // =
         assertEquals(NostosTokenTypes.IDENTIFIER, tokens[5].first)    // x
         assertEquals(NostosTokenTypes.OPERATOR, tokens[6].first)      // *
@@ -551,20 +556,20 @@ class NostosLexerTest {
     fun listLiteral() {
         // [1, 2, 3] without whitespace: [, 1, ,, 2, ,, 3, ]
         val tokens = tokenize("[1, 2, 3]")
-        assertEquals(NostosTokenTypes.OPERATOR, tokens[0].first)  // [
+        assertEquals(NostosTokenTypes.LBRACKET, tokens[0].first)  // [
         assertEquals(NostosTokenTypes.NUMBER, tokens[1].first)    // 1
         assertEquals(NostosTokenTypes.OPERATOR, tokens[2].first)  // ,
         assertEquals(NostosTokenTypes.NUMBER, tokens[3].first)    // 2
         assertEquals(NostosTokenTypes.OPERATOR, tokens[4].first)  // ,
         assertEquals(NostosTokenTypes.NUMBER, tokens[5].first)    // 3
-        assertEquals(NostosTokenTypes.OPERATOR, tokens[6].first)  // ]
+        assertEquals(NostosTokenTypes.RBRACKET, tokens[6].first)  // ]
     }
 
     @Test
     fun mapLiteral() {
         val tokens = tokenize("%{\"key\": 42}")
         assertEquals(NostosTokenTypes.OPERATOR, tokens[0].first)  // %
-        assertEquals(NostosTokenTypes.OPERATOR, tokens[1].first)  // {
+        assertEquals(NostosTokenTypes.LBRACE, tokens[1].first)    // {
         assertEquals(NostosTokenTypes.STRING, tokens[2].first)    // "key"
     }
 
@@ -591,9 +596,9 @@ class NostosLexerTest {
         assertEquals(NostosTokenTypes.IDENTIFIER, tokens[0].first)    // list
         assertEquals(NostosTokenTypes.OPERATOR, tokens[1].first)      // .
         assertEquals(NostosTokenTypes.FUNCTION_NAME, tokens[2].first) // map
-        assertEquals(NostosTokenTypes.OPERATOR, tokens[3].first)      // (
+        assertEquals(NostosTokenTypes.LPAREN, tokens[3].first)        // (
         assertEquals(NostosTokenTypes.IDENTIFIER, tokens[4].first)    // f
-        assertEquals(NostosTokenTypes.OPERATOR, tokens[5].first)      // )
+        assertEquals(NostosTokenTypes.RPAREN, tokens[5].first)        // )
         assertEquals(NostosTokenTypes.OPERATOR, tokens[6].first)      // .
         assertEquals(NostosTokenTypes.FUNCTION_NAME, tokens[7].first) // filter
     }
@@ -619,11 +624,11 @@ class NostosLexerTest {
     @Test
     fun consOperator() {
         val tokens = tokenize("[h | t]")
-        assertEquals(NostosTokenTypes.OPERATOR, tokens[0].first)   // [
+        assertEquals(NostosTokenTypes.LBRACKET, tokens[0].first)   // [
         assertEquals(NostosTokenTypes.IDENTIFIER, tokens[1].first) // h
         assertEquals(NostosTokenTypes.OPERATOR, tokens[2].first)   // |
         assertEquals(NostosTokenTypes.IDENTIFIER, tokens[3].first) // t
-        assertEquals(NostosTokenTypes.OPERATOR, tokens[4].first)   // ]
+        assertEquals(NostosTokenTypes.RBRACKET, tokens[4].first)   // ]
     }
 
     @Test
@@ -632,7 +637,7 @@ class NostosLexerTest {
         val tokens = tokenize(input)
         assertEquals(NostosTokenTypes.KEYWORD, tokens[0].first)     // receive
         assertEquals("receive", tokens[0].second)
-        assertEquals(NostosTokenTypes.OPERATOR, tokens[1].first)    // {
+        assertEquals(NostosTokenTypes.LBRACE, tokens[1].first)      // {
         assertEquals(NostosTokenTypes.TYPE_NAME, tokens[2].first)   // Ping
         assertEquals("Ping", tokens[2].second)
     }
@@ -641,7 +646,7 @@ class NostosLexerTest {
     fun spawnBlock() {
         val tokens = tokenize("spawn { worker() }")
         assertEquals(NostosTokenTypes.KEYWORD, tokens[0].first)       // spawn
-        assertEquals(NostosTokenTypes.OPERATOR, tokens[1].first)      // {
+        assertEquals(NostosTokenTypes.LBRACE, tokens[1].first)        // {
         assertEquals(NostosTokenTypes.FUNCTION_NAME, tokens[2].first) // worker
     }
 

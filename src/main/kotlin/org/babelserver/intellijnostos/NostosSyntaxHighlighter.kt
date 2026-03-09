@@ -67,6 +67,24 @@ class NostosSyntaxHighlighter : SyntaxHighlighterBase() {
                 DefaultLanguageHighlighterColors.OPERATION_SIGN
             )
         )
+        val PAREN_KEYS = arrayOf(
+            TextAttributesKey.createTextAttributesKey(
+                "NOSTOS_PARENTHESES",
+                DefaultLanguageHighlighterColors.PARENTHESES
+            )
+        )
+        val BRACKET_KEYS = arrayOf(
+            TextAttributesKey.createTextAttributesKey(
+                "NOSTOS_BRACKETS",
+                DefaultLanguageHighlighterColors.BRACKETS
+            )
+        )
+        val BRACE_KEYS = arrayOf(
+            TextAttributesKey.createTextAttributesKey(
+                "NOSTOS_BRACES",
+                DefaultLanguageHighlighterColors.BRACES
+            )
+        )
         val CHAR_KEYS = arrayOf(
             TextAttributesKey.createTextAttributesKey(
                 "NOSTOS_CHAR",
@@ -91,6 +109,9 @@ class NostosSyntaxHighlighter : SyntaxHighlighterBase() {
         NostosTokenTypes.TYPE_NAME -> TYPE_NAME_KEYS
         NostosTokenTypes.FUNCTION_NAME -> FUNCTION_NAME_KEYS
         NostosTokenTypes.OPERATOR -> OPERATOR_KEYS
+        NostosTokenTypes.LPAREN, NostosTokenTypes.RPAREN -> PAREN_KEYS
+        NostosTokenTypes.LBRACKET, NostosTokenTypes.RBRACKET -> BRACKET_KEYS
+        NostosTokenTypes.LBRACE, NostosTokenTypes.RBRACE -> BRACE_KEYS
         else -> EMPTY_KEYS
     }
 }

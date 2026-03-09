@@ -27,5 +27,8 @@
         <lang.commenter
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosCommenter"/>
+        <lang.braceMatcher
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosBraceMatcher"/>
     </extensions>
 </idea-plugin>

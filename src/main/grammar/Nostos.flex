@@ -142,7 +142,12 @@ TwoCharOp       = "++" | "::" | "->" | "<-" | "<=" | ">="
 
     // Single-char operators and punctuation
     [+\-*/%=<>!.|,;:@~\^&\?]       { return OPERATOR; }
-    [\(\)\[\]\{\}]                  { return OPERATOR; }
+    "("                             { return LPAREN; }
+    ")"                             { return RPAREN; }
+    "["                             { return LBRACKET; }
+    "]"                             { return RBRACKET; }
+    "{"                             { return LBRACE; }
+    "}"                             { return RBRACE; }
 
     // Catch-all
     [^]                             { return BAD_CHARACTER; }
