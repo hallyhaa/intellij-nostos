@@ -1,0 +1,4 @@
+last_destination(move) = {
+    dests = get_destinations(move)
+    if dests.isEmpty() then cell_out() else dests[dests.length() - 1]
+}

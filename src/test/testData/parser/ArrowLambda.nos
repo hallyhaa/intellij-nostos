@@ -1,0 +1,3 @@
+list.map(x => x * 2)
+
+list.fold(0, (acc, x) => acc + x)

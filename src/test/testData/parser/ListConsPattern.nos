@@ -1,0 +1,3 @@
+match xs with
+| [h | t] -> h
+| [] -> 0

@@ -13,4 +13,12 @@ class NostosParserTest : ParsingTestCase("parser", "nos", NostosParserDefinition
     fun testStringInterpolation() = doTest(true)
     fun testControlFlow() = doTest(true)
     fun testErrorRecovery() = doTest(true)
+    fun testBareFnDecl() = doTest(true)
+    fun testBraceMatch() = doTest(true)
+    fun testArrowLambda() = doTest(true)
+    fun testDestructuringImport() = doTest(true)
+    fun testNewlineBlock() = doTest(true)
+    fun testListConsPattern() = doTest(true)
+    fun testExampleRobot() = doTest(true)
+    fun testBlockBody() = doTest(true)
 }
