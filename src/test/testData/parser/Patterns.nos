@@ -1,0 +1,4 @@
+match x with
+| 0 => "zero"
+| n when n > 0 => "positive"
+| _ => "negative"

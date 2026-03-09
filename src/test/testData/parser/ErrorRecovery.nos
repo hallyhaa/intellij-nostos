@@ -1,0 +1,5 @@
+fn good(x) = x + 1
+
+fn bad( = @@@
+
+fn also_good(y) = y * 2

@@ -151,6 +151,9 @@ private item ::= module_decl
                | mvar_decl
                | const_decl
                | expr
+               {recoverWhile=item_recover}
+
+private item_recover ::= !(FN | IF | TYPE_KW | TRAIT | USE | TEST | EXTERN | VAR | MVAR | CONST | MODULE_KW | PUB | PRIVATE | MATCH | FOR | WHILE | TRY | <<eof>>)
 
 // ===== Identifier helpers =====
 
