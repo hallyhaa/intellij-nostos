@@ -2,6 +2,7 @@
   parserClass="org.babelserver.intellijnostos.parser.NostosParser"
 
   extends="com.intellij.extapi.psi.ASTWrapperPsiElement"
+  extends(".*_expr")=expr
 
   psiClassPrefix="Nostos"
   psiImplClassSuffix="Impl"
@@ -11,9 +12,134 @@
   elementTypeHolderClass="org.babelserver.intellijnostos.psi.NostosTypes"
   elementTypeClass="org.babelserver.intellijnostos.psi.NostosElementType"
   tokenTypeClass="org.babelserver.intellijnostos.psi.NostosTokenType"
+
+  tokens=[
+    // Keywords
+    FN='fn'
+    IF='if'
+    THEN='then'
+    ELSE='else'
+    MATCH='match'
+    WITH='with'
+    TYPE_KW='type'
+    TRAIT='trait'
+    END='end'
+    USE='use'
+    PUB='pub'
+    PRIVATE='private'
+    MODULE_KW='module'
+    IMPORT='import'
+    VAR='var'
+    MVAR='mvar'
+    CONST='const'
+    FOR='for'
+    TO='to'
+    IN='in'
+    WHILE='while'
+    DO='do'
+    BREAK='break'
+    CONTINUE='continue'
+    RETURN='return'
+    SPAWN='spawn'
+    SPAWN_LINK='spawn_link'
+    SPAWN_MONITOR='spawn_monitor'
+    RECEIVE='receive'
+    AFTER='after'
+    TRY='try'
+    CATCH='catch'
+    FINALLY='finally'
+    THROW='throw'
+    PANIC='panic'
+    WHEN='when'
+    TRUE='true'
+    FALSE='false'
+    SELF='self'
+    SELF_TYPE='Self'
+    REACTIVE='reactive'
+    DERIVING='deriving'
+    WHERE='where'
+    FORALL='forall'
+    EXTERN='extern'
+    TEST='test'
+    QUOTE='quote'
+    FROM='from'
+    AS='as'
+
+    // Single-char operators
+    PLUS='+'
+    MINUS='-'
+    STAR='*'
+    SLASH='/'
+    PERCENT='%'
+    EQ='='
+    LT='<'
+    GT='>'
+    BANG='!'
+    DOT='.'
+    PIPE='|'
+    COMMA=','
+    SEMICOLON=';'
+    COLON=':'
+    AT='@'
+    TILDE='~'
+    CARET='^'
+    AMP='&'
+    QUESTION='?'
+    BACKSLASH='\'
+    UNDERSCORE='_'
+
+    // Two-char operators
+    PLUS_PLUS='++'
+    COLON_COLON='::'
+    ARROW='->'
+    SEND_OP='<-'
+    LE='<='
+    GE='>='
+    EQ_EQ='=='
+    BANG_EQ='!='
+    AMP_AMP='&&'
+    PIPE_PIPE='||'
+    STAR_STAR='**'
+    PLUS_EQ='+='
+    FAT_ARROW='=>'
+    PIPE_GT='|>'
+    MINUS_EQ='-='
+    STAR_EQ='*='
+    SLASH_EQ='/='
+    DOT_DOT='..'
+
+    // Special compound tokens
+    HASH_LBRACE='#{'
+    PERCENT_LBRACE='%{'
+
+    // Brackets
+    LPAREN='('
+    RPAREN=')'
+    LBRACKET='['
+    RBRACKET=']'
+    LBRACE='{'
+    RBRACE='}'
+    INTERPOLATION_START='INTERPOLATION_START'
+    INTERPOLATION_END='INTERPOLATION_END'
+
+    // Literals and identifiers
+    NUMBER='NUMBER'
+    STRING='STRING'
+    CHAR='CHAR'
+    IDENTIFIER='IDENTIFIER'
+    TYPE_NAME='TYPE_NAME'
+    FUNCTION_NAME='FUNCTION_NAME'
+
+    // Comments
+    COMMENT='COMMENT'
+    BLOCK_COMMENT='BLOCK_COMMENT'
+  ]
 }
 
-// Minimal placeholder grammar — will be expanded in Task 2
-nostosFile ::= item_*
+// Minimal grammar — will be expanded in Task 6 with full Nostos grammar
+nostosFile ::= expr*
 
-private item_ ::= COMMENT
+expr ::= literal_expr | ref_expr
+
+literal_expr ::= NUMBER | STRING | CHAR | TRUE | FALSE
+ref_expr ::= IDENTIFIER | FUNCTION_NAME | TYPE_NAME
