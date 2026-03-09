@@ -1,0 +1,19 @@
+{
+  parserClass="org.babelserver.intellijnostos.parser.NostosParser"
+
+  extends="com.intellij.extapi.psi.ASTWrapperPsiElement"
+
+  psiClassPrefix="Nostos"
+  psiImplClassSuffix="Impl"
+  psiPackage="org.babelserver.intellijnostos.psi"
+  psiImplPackage="org.babelserver.intellijnostos.psi.impl"
+
+  elementTypeHolderClass="org.babelserver.intellijnostos.psi.NostosTypes"
+  elementTypeClass="org.babelserver.intellijnostos.psi.NostosElementType"
+  tokenTypeClass="org.babelserver.intellijnostos.psi.NostosTokenType"
+}
+
+// Minimal placeholder grammar — will be expanded in Task 2
+nostosFile ::= item_*
+
+private item_ ::= COMMENT

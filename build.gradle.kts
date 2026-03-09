@@ -46,14 +46,24 @@ sourceSets {
     main {
         java {
             srcDir(layout.buildDirectory.dir("generated/sources/jflex"))
+            srcDir(layout.buildDirectory.dir("generated/sources/grammar-kit"))
         }
     }
+}
+
+tasks.named<org.jetbrains.intellij.platform.gradle.tasks.GenerateParserTask>("generateParser") {
+    sourceFile.set(file("src/main/grammar/Nostos.bnf"))
+    targetRootOutputDir.set(layout.buildDirectory.dir("generated/sources/grammar-kit"))
+    pathToParser.set("org/babelserver/intellijnostos/parser/NostosParser.java")
+    pathToPsiRoot.set("org/babelserver/intellijnostos/psi")
+    purgeOldFiles.set(true)
 }
 
 tasks.named<org.jetbrains.intellij.platform.gradle.tasks.GenerateLexerTask>("generateLexer") {
     sourceFile.set(file("src/main/grammar/Nostos.flex"))
     targetOutputDir.set(layout.buildDirectory.dir("generated/sources/jflex/org/babelserver/intellijnostos"))
     purgeOldFiles.set(true)
+    dependsOn("generateParser")
 }
 
 tasks.named("compileKotlin") {
