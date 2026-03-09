@@ -152,7 +152,7 @@ FloatNumber     = {DecInteger} {FracPart} {Exponent}? {DecimalSuffix}?
     {WhiteSpace}+                   { return WHITE_SPACE; }
 
     // Set literal start (must come before comment rules)
-    "#{"                            { return HASH_LBRACE; }
+    "#{"                            { if (interpolationDepth > 0) interpolationDepth++; return HASH_LBRACE; }
 
     // Block comment start
     "#*"                            { yybegin(S_BLOCK_COMMENT); return BLOCK_COMMENT; }
@@ -198,7 +198,7 @@ FloatNumber     = {DecInteger} {FracPart} {Exponent}? {DecimalSuffix}?
     "*="                            { return STAR_EQ; }
     "/="                            { return SLASH_EQ; }
     ".."                            { return DOT_DOT; }
-    "%{"                            { return PERCENT_LBRACE; }
+    "%{"                            { if (interpolationDepth > 0) interpolationDepth++; return PERCENT_LBRACE; }
 
     // Single-char operators
     "+"                             { return PLUS; }
