@@ -1,0 +1,8 @@
+Nostos File
+  NostosStringExprImpl(NostosElementType.STRING_EXPR)
+    PsiElement(NostosTokenType.STRING)('"hello ')
+    PsiElement(NostosTokenType.INTERPOLATION_START)('${')
+    NostosRefExprImpl(NostosElementType.REF_EXPR)
+      PsiElement(NostosTokenType.IDENTIFIER)('name')
+    PsiElement(NostosTokenType.INTERPOLATION_END)('}')
+    PsiElement(NostosTokenType.STRING)('"')

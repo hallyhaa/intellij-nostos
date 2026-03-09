@@ -10,31 +10,28 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.tree.IFileElementType
 import com.intellij.psi.tree.TokenSet
+import org.babelserver.intellijnostos.parser.NostosParser
+import org.babelserver.intellijnostos.psi.NostosTypes
 
 private val FILE = IFileElementType(NostosLanguage)
 private val COMMENTS = TokenSet.create(
-    NostosTokenTypes.COMMENT,
-    NostosTokenTypes.BLOCK_COMMENT
+    NostosTypes.COMMENT,
+    NostosTypes.BLOCK_COMMENT
 )
 private val STRINGS = TokenSet.create(
-    NostosTokenTypes.STRING,
-    NostosTokenTypes.CHAR
+    NostosTypes.STRING,
+    NostosTypes.CHAR
 )
 
 class NostosParserDefinition : ParserDefinition {
     override fun createLexer(project: Project?): Lexer = NostosLexerAdapter()
-
-    override fun createParser(project: Project?): PsiParser =
-        NostosParser()
-
+    override fun createParser(project: Project?): PsiParser = NostosParser()
     override fun getFileNodeType(): IFileElementType = FILE
-
     override fun getCommentTokens(): TokenSet = COMMENTS
-
     override fun getStringLiteralElements(): TokenSet = STRINGS
 
-    override fun createElement(node: ASTNode?): PsiElement =
-        NostosElementType.Factory.createElement(node)
+    override fun createElement(node: ASTNode): PsiElement =
+        NostosTypes.Factory.createElement(node)
 
     override fun createFile(viewProvider: FileViewProvider): PsiFile =
         NostosFile(viewProvider)
