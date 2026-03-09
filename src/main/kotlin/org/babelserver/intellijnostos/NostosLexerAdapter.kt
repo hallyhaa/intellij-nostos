@@ -12,7 +12,7 @@ private val TOKENS_TO_MERGE = TokenSet.create(
 )
 
 class NostosLexerAdapter : MergingLexerAdapterBase(
-    NostosStateEncodingLexer(NostosFlexLexer(null))
+    FlexAdapter(NostosFlexLexer(null))
 ) {
     override fun getMergeFunction() = MergeFunction { type, lexer ->
         if (TOKENS_TO_MERGE.contains(type)) {
@@ -21,24 +21,5 @@ class NostosLexerAdapter : MergingLexerAdapterBase(
             }
         }
         type
-    }
-}
-
-internal class NostosStateEncodingLexer(
-    private val flexLexer: NostosFlexLexer
-) : FlexAdapter(flexLexer) {
-
-    override fun getState(): Int {
-        return super.getState() or (flexLexer.commentDepth shl 16)
-    }
-
-    override fun start(
-        buffer: CharSequence,
-        startOffset: Int,
-        endOffset: Int,
-        initialState: Int
-    ) {
-        flexLexer.commentDepth = initialState ushr 16
-        super.start(buffer, startOffset, endOffset, initialState and 0xFFFF)
     }
 }

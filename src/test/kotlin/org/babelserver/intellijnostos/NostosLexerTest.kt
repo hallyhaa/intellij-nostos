@@ -720,16 +720,15 @@ class NostosLexerTest {
         val lexer = NostosLexerAdapter()
         val input = "still in comment *# done"
 
-        // JFlex state S_BLOCK_COMMENT = 2, depth = 1 → encoded: 2 | (1 << 16)
-        val blockCommentState = 2 or (1 shl 16)
-        lexer.start(input, 0, input.length, blockCommentState)
+        // JFlex state S_BLOCK_COMMENT = 2
+        lexer.start(input, 0, input.length, 2)
 
         // First token(s) should be BLOCK_COMMENT (the comment content + closing *#)
         assertEquals(NostosTokenTypes.BLOCK_COMMENT, lexer.tokenType)
         lexer.advance()
 
         // After the comment closes, we should get whitespace then "done" as IDENTIFIER
-        if (lexer.tokenType == com.intellij.psi.TokenType.WHITE_SPACE) lexer.advance()
+        if (lexer.tokenType == TokenType.WHITE_SPACE) lexer.advance()
         assertEquals(NostosTokenTypes.IDENTIFIER, lexer.tokenType)
         assertEquals("done", tokenTextAt(lexer))
     }
@@ -738,33 +737,17 @@ class NostosLexerTest {
         return lexer.bufferSequence.subSequence(lexer.tokenStart, lexer.tokenEnd).toString()
     }
 
-    // ==================== Nested block comments ====================
+    // ==================== Non-nested block comments ====================
 
     @Test
-    fun nestedBlockComment() {
-        val input = "#* outer #* inner *# still outer *#"
+    fun blockCommentWithInnerOpenMarker() {
+        // Nostos does NOT support nested block comments.
+        // #* in the middle is just text; the first *# closes the comment.
+        val input = "#* outer #* inner *# code_after"
         val tokens = tokenize(input)
-        assertEquals(1, tokens.size)
         assertEquals(NostosTokenTypes.BLOCK_COMMENT, tokens[0].first)
-        assertEquals(input, tokens[0].second)
-    }
-
-    @Test
-    fun doubleNestedBlockComment() {
-        val input = "#* a #* b #* c *# d *# e *#"
-        val tokens = tokenize(input)
-        assertEquals(1, tokens.size)
-        assertEquals(NostosTokenTypes.BLOCK_COMMENT, tokens[0].first)
-        assertEquals(input, tokens[0].second)
-    }
-
-    @Test
-    fun nestedBlockCommentPartiallyUnclosed() {
-        // Inner #* opened but outer *# only decrements depth to 1, not 0
-        val input = "#* outer #* inner *#"
-        val tokens = tokenize(input)
-        assertEquals(1, tokens.size)
-        assertEquals(NostosTokenTypes.BLOCK_COMMENT, tokens[0].first)
-        assertEquals(input, tokens[0].second)
+        assertEquals("#* outer #* inner *#", tokens[0].second)
+        assertEquals(NostosTokenTypes.IDENTIFIER, tokens[1].first)
+        assertEquals("code_after", tokens[1].second)
     }
 }

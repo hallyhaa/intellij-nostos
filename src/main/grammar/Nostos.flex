@@ -20,8 +20,6 @@ import static org.babelserver.intellijnostos.NostosTokenTypes.*;
 %state S_CHAR_LIT
 
 %{
-    public int commentDepth = 0;
-
     public NostosFlexLexer() {
         this((java.io.Reader)null);
     }
@@ -82,10 +80,9 @@ TwoCharOp       = "++" | "::" | "->" | "<-" | "<=" | ">="
 /* ===== S_BLOCK_COMMENT state ===== */
 
 <S_BLOCK_COMMENT> {
-    "#*"            { commentDepth++; return BLOCK_COMMENT; }
-    "*#"            { commentDepth--; if (commentDepth == 0) yybegin(YYINITIAL); return BLOCK_COMMENT; }
-    [^#*]+          { return BLOCK_COMMENT; }
-    [#*]            { return BLOCK_COMMENT; }
+    "*#"            { yybegin(YYINITIAL); return BLOCK_COMMENT; }
+    [^*]+           { return BLOCK_COMMENT; }
+    "*"             { return BLOCK_COMMENT; }
     <<EOF>>         { yybegin(YYINITIAL); return BLOCK_COMMENT; }
 }
 
@@ -116,7 +113,7 @@ TwoCharOp       = "++" | "::" | "->" | "<-" | "<=" | ">="
     {WhiteSpace}+                   { return WHITE_SPACE; }
 
     // Block comment start
-    "#*"                            { commentDepth = 1; yybegin(S_BLOCK_COMMENT); return BLOCK_COMMENT; }
+    "#*"                            { yybegin(S_BLOCK_COMMENT); return BLOCK_COMMENT; }
 
     // Line comments (# followed by anything except *)
     "#" [^*\r\n] [^\r\n]*          { return COMMENT; }
