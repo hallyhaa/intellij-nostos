@@ -146,9 +146,76 @@ class NostosLexerTest {
 
     @Test
     fun stringWithInterpolation() {
-        val (type, text) = singleToken("\"value: \${x + 1}\"")
+        val tokens = tokenize("\"value: \${x + 1}\"")
+        assertEquals(NostosTokenTypes.STRING, tokens[0].first)            // "value:
+        assertEquals("\"value: ", tokens[0].second)
+        assertEquals(NostosTokenTypes.INTERPOLATION_START, tokens[1].first)  // ${
+        assertEquals("\${", tokens[1].second)
+        assertEquals(NostosTokenTypes.IDENTIFIER, tokens[2].first)        // x
+        assertEquals(NostosTokenTypes.OPERATOR, tokens[3].first)          // +
+        assertEquals(NostosTokenTypes.NUMBER, tokens[4].first)            // 1
+        assertEquals(NostosTokenTypes.INTERPOLATION_END, tokens[5].first)   // }
+        assertEquals(NostosTokenTypes.STRING, tokens[6].first)            // "
+        assertEquals("\"", tokens[6].second)
+    }
+
+    @Test
+    fun stringInterpolationSimpleVar() {
+        val tokens = tokenize("\"hello \${name}!\"")
+        assertEquals(NostosTokenTypes.STRING, tokens[0].first)
+        assertEquals("\"hello ", tokens[0].second)
+        assertEquals(NostosTokenTypes.INTERPOLATION_START, tokens[1].first)
+        assertEquals(NostosTokenTypes.IDENTIFIER, tokens[2].first)
+        assertEquals("name", tokens[2].second)
+        assertEquals(NostosTokenTypes.INTERPOLATION_END, tokens[3].first)
+        assertEquals(NostosTokenTypes.STRING, tokens[4].first)
+        assertEquals("!\"", tokens[4].second)
+    }
+
+    @Test
+    fun stringInterpolationWithFunctionCall() {
+        val tokens = tokenize("\"result: \${f(x)}\"")
+        assertEquals(NostosTokenTypes.STRING, tokens[0].first)
+        assertEquals(NostosTokenTypes.INTERPOLATION_START, tokens[1].first)
+        assertEquals(NostosTokenTypes.FUNCTION_NAME, tokens[2].first)
+        assertEquals("f", tokens[2].second)
+        assertEquals(NostosTokenTypes.LPAREN, tokens[3].first)
+        assertEquals(NostosTokenTypes.IDENTIFIER, tokens[4].first)
+        assertEquals(NostosTokenTypes.RPAREN, tokens[5].first)
+        assertEquals(NostosTokenTypes.INTERPOLATION_END, tokens[6].first)
+        assertEquals(NostosTokenTypes.STRING, tokens[7].first)
+    }
+
+    @Test
+    fun stringInterpolationWithMapLiteral() {
+        // Braces inside interpolation should not close it prematurely
+        val tokens = tokenize("\"\${ %{a: 1} }\"")
+        assertEquals(NostosTokenTypes.STRING, tokens[0].first)
+        assertEquals(NostosTokenTypes.INTERPOLATION_START, tokens[1].first)
+        assertEquals(NostosTokenTypes.OPERATOR, tokens[2].first)          // %
+        assertEquals(NostosTokenTypes.LBRACE, tokens[3].first)            // {
+        assertEquals(NostosTokenTypes.IDENTIFIER, tokens[4].first)        // a
+        assertEquals(NostosTokenTypes.OPERATOR, tokens[5].first)          // :
+        assertEquals(NostosTokenTypes.NUMBER, tokens[6].first)            // 1
+        assertEquals(NostosTokenTypes.RBRACE, tokens[7].first)            // }
+        assertEquals(NostosTokenTypes.INTERPOLATION_END, tokens[8].first) // }
+        assertEquals(NostosTokenTypes.STRING, tokens[9].first)            // "
+    }
+
+    @Test
+    fun stringDollarWithoutBrace() {
+        // $ not followed by { is just string content
+        val (type, text) = singleToken("\"\$x\"")
         assertEquals(NostosTokenTypes.STRING, type)
-        assertEquals("\"value: \${x + 1}\"", text)
+        assertEquals("\"\$x\"", text)
+    }
+
+    @Test
+    fun stringEscapedDollar() {
+        // \$ is an escape sequence, should not trigger interpolation
+        val (type, text) = singleToken("\"\\\${x}\"")
+        assertEquals(NostosTokenTypes.STRING, type)
+        assertEquals("\"\\\${x}\"", text)
     }
 
     @Test

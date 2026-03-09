@@ -85,6 +85,12 @@ class NostosSyntaxHighlighter : SyntaxHighlighterBase() {
                 DefaultLanguageHighlighterColors.BRACES
             )
         )
+        val INTERPOLATION_KEYS = arrayOf(
+            TextAttributesKey.createTextAttributesKey(
+                "NOSTOS_INTERPOLATION",
+                DefaultLanguageHighlighterColors.VALID_STRING_ESCAPE
+            )
+        )
         val CHAR_KEYS = arrayOf(
             TextAttributesKey.createTextAttributesKey(
                 "NOSTOS_CHAR",
@@ -112,6 +118,7 @@ class NostosSyntaxHighlighter : SyntaxHighlighterBase() {
         NostosTokenTypes.LPAREN, NostosTokenTypes.RPAREN -> PAREN_KEYS
         NostosTokenTypes.LBRACKET, NostosTokenTypes.RBRACKET -> BRACKET_KEYS
         NostosTokenTypes.LBRACE, NostosTokenTypes.RBRACE -> BRACE_KEYS
+        NostosTokenTypes.INTERPOLATION_START, NostosTokenTypes.INTERPOLATION_END -> INTERPOLATION_KEYS
         else -> EMPTY_KEYS
     }
 }

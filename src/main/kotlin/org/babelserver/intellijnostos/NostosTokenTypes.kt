@@ -18,5 +18,7 @@ object NostosTokenTypes {
     @JvmField val RBRACKET = IElementType("RBRACKET", NostosLanguage)
     @JvmField val LBRACE = IElementType("LBRACE", NostosLanguage)
     @JvmField val RBRACE = IElementType("RBRACE", NostosLanguage)
+    @JvmField val INTERPOLATION_START = IElementType("INTERPOLATION_START", NostosLanguage)
+    @JvmField val INTERPOLATION_END = IElementType("INTERPOLATION_END", NostosLanguage)
     @JvmField val KEYWORD = IElementType("KEYWORD", NostosLanguage)
 }

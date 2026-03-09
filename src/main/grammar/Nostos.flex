@@ -24,6 +24,9 @@ import static org.babelserver.intellijnostos.NostosTokenTypes.*;
         this((java.io.Reader)null);
     }
 
+    /** Tracks brace depth for string interpolation (${...}). */
+    public int interpolationDepth = 0;
+
     private IElementType identifierOrKeyword(boolean beforeParen) {
         String text = yytext().toString();
         switch (text) {
@@ -89,9 +92,11 @@ TwoCharOp       = "++" | "::" | "->" | "<-" | "<=" | ">="
 /* ===== S_STRING state ===== */
 
 <S_STRING> {
+    "${"            { interpolationDepth++; yybegin(YYINITIAL); return INTERPOLATION_START; }
     \"              { yybegin(YYINITIAL); return STRING; }
     \\[^\r\n]       { return STRING; }
-    [^\"\\\r\n]+    { return STRING; }
+    [^\"\\$\r\n]+   { return STRING; }
+    "$"             { return STRING; }
     \\              { return STRING; }
     {LineTerminator} { return STRING; }
     <<EOF>>         { yybegin(YYINITIAL); return STRING; }
@@ -146,8 +151,10 @@ TwoCharOp       = "++" | "::" | "->" | "<-" | "<=" | ">="
     ")"                             { return RPAREN; }
     "["                             { return LBRACKET; }
     "]"                             { return RBRACKET; }
-    "{"                             { return LBRACE; }
-    "}"                             { return RBRACE; }
+    "{"                             { if (interpolationDepth > 0) interpolationDepth++; return LBRACE; }
+    "}"                             { if (interpolationDepth > 1) { interpolationDepth--; return RBRACE; }
+                                      if (interpolationDepth == 1) { interpolationDepth = 0; yybegin(S_STRING); return INTERPOLATION_END; }
+                                      return RBRACE; }
 
     // Catch-all
     [^]                             { return BAD_CHARACTER; }
