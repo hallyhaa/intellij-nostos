@@ -680,4 +680,91 @@ class NostosLexerTest {
         }
         assertEquals(input.length, expectedStart)
     }
+
+    // ==================== State management (incremental re-lexing) ====================
+
+    @Test
+    fun stateIsZeroInNormalCode() {
+        val lexer = NostosLexerAdapter()
+        val input = "x = 42"
+        lexer.start(input, 0, input.length, 0)
+        while (lexer.tokenType != null) {
+            assertEquals(0, lexer.state and 0xFFFF, "Expected YYINITIAL state for normal code")
+            lexer.advance()
+        }
+    }
+
+    @Test
+    fun stateRestoredAfterBlockComment() {
+        val lexer = NostosLexerAdapter()
+        val input = "x #* comment *# y"
+        lexer.start(input, 0, input.length, 0)
+
+        // Walk all tokens to find "y" and check state there
+        var foundY = false
+        while (lexer.tokenType != null) {
+            val text = input.substring(lexer.tokenStart, lexer.tokenEnd)
+            if (text == "y") {
+                foundY = true
+                assertEquals(NostosTokenTypes.IDENTIFIER, lexer.tokenType)
+                assertEquals(0, lexer.state and 0xFFFF, "State should be YYINITIAL after block comment")
+            }
+            lexer.advance()
+        }
+        assert(foundY) { "Should have found identifier 'y' after block comment" }
+    }
+
+    @Test
+    fun reLexFromMiddleOfBlockComment() {
+        // Simulate re-lexing from mid-comment by starting with block comment state
+        val lexer = NostosLexerAdapter()
+        val input = "still in comment *# done"
+
+        // JFlex state S_BLOCK_COMMENT = 2, depth = 1 → encoded: 2 | (1 << 16)
+        val blockCommentState = 2 or (1 shl 16)
+        lexer.start(input, 0, input.length, blockCommentState)
+
+        // First token(s) should be BLOCK_COMMENT (the comment content + closing *#)
+        assertEquals(NostosTokenTypes.BLOCK_COMMENT, lexer.tokenType)
+        lexer.advance()
+
+        // After the comment closes, we should get whitespace then "done" as IDENTIFIER
+        if (lexer.tokenType == com.intellij.psi.TokenType.WHITE_SPACE) lexer.advance()
+        assertEquals(NostosTokenTypes.IDENTIFIER, lexer.tokenType)
+        assertEquals("done", tokenTextAt(lexer))
+    }
+
+    private fun tokenTextAt(lexer: NostosLexerAdapter): String {
+        return lexer.bufferSequence.subSequence(lexer.tokenStart, lexer.tokenEnd).toString()
+    }
+
+    // ==================== Nested block comments ====================
+
+    @Test
+    fun nestedBlockComment() {
+        val input = "#* outer #* inner *# still outer *#"
+        val tokens = tokenize(input)
+        assertEquals(1, tokens.size)
+        assertEquals(NostosTokenTypes.BLOCK_COMMENT, tokens[0].first)
+        assertEquals(input, tokens[0].second)
+    }
+
+    @Test
+    fun doubleNestedBlockComment() {
+        val input = "#* a #* b #* c *# d *# e *#"
+        val tokens = tokenize(input)
+        assertEquals(1, tokens.size)
+        assertEquals(NostosTokenTypes.BLOCK_COMMENT, tokens[0].first)
+        assertEquals(input, tokens[0].second)
+    }
+
+    @Test
+    fun nestedBlockCommentPartiallyUnclosed() {
+        // Inner #* opened but outer *# only decrements depth to 1, not 0
+        val input = "#* outer #* inner *#"
+        val tokens = tokenize(input)
+        assertEquals(1, tokens.size)
+        assertEquals(NostosTokenTypes.BLOCK_COMMENT, tokens[0].first)
+        assertEquals(input, tokens[0].second)
+    }
 }
