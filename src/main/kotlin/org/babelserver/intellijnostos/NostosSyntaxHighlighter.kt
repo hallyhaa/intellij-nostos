@@ -76,7 +76,7 @@ class NostosSyntaxHighlighter : SyntaxHighlighterBase() {
         private val EMPTY_KEYS = emptyArray<TextAttributesKey>()
     }
 
-    override fun getHighlightingLexer(): Lexer = NostosLexer()
+    override fun getHighlightingLexer(): Lexer = NostosLexerAdapter()
 
     override fun getTokenHighlights(
         tokenType: IElementType?

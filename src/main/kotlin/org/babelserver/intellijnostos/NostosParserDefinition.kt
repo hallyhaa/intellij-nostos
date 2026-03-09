@@ -22,7 +22,7 @@ private val STRINGS = TokenSet.create(
 )
 
 class NostosParserDefinition : ParserDefinition {
-    override fun createLexer(project: Project?): Lexer = NostosLexer()
+    override fun createLexer(project: Project?): Lexer = NostosLexerAdapter()
 
     override fun createParser(project: Project?): PsiParser =
         NostosParser()

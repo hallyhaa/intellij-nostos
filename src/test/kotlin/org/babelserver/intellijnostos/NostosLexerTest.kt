@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test
 class NostosLexerTest {
 
     private fun tokenizeAll(input: String): List<Pair<IElementType, String>> {
-        val lexer = NostosLexer()
+        val lexer = NostosLexerAdapter()
         val tokens = mutableListOf<Pair<IElementType, String>>()
         lexer.start(input, 0, input.length, 0)
         while (lexer.tokenType != null) {
@@ -40,7 +40,7 @@ class NostosLexerTest {
 
     @Test
     fun emptyInput() {
-        val lexer = NostosLexer()
+        val lexer = NostosLexerAdapter()
         lexer.start("", 0, 0, 0)
         assertNull(lexer.tokenType)
     }
@@ -667,7 +667,7 @@ class NostosLexerTest {
     fun noGaps() {
         // Verify lexer produces contiguous tokens with no gaps
         val input = "fib(n) = fib(n - 1) + fib(n - 2)"
-        val lexer = NostosLexer()
+        val lexer = NostosLexerAdapter()
         lexer.start(input, 0, input.length, 0)
         var expectedStart = 0
         while (lexer.tokenType != null) {
