@@ -1,0 +1,6 @@
+try parse(input) catch e { log(e) }
+
+try risky() catch
+  | NotFound => default
+  | Timeout => retry()
+end

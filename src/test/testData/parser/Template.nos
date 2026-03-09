@@ -1,0 +1,4 @@
+template logged(f) = quote { println("calling"); f }
+
+@logged
+fn add(x, y) = x + y

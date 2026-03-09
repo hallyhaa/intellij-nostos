@@ -13,6 +13,8 @@
   elementTypeClass="org.babelserver.intellijnostos.psi.NostosElementType"
   tokenTypeClass="org.babelserver.intellijnostos.psi.NostosTokenType"
 
+  parserUtilClass="org.babelserver.intellijnostos.parser.NostosParserUtil"
+
   tokens=[
     // Keywords
     FN='fn'
@@ -65,6 +67,7 @@
     FROM='from'
     AS='as'
     IMPL='impl'
+    TEMPLATE='template'
 
     // Single-char operators
     PLUS='+'
@@ -126,7 +129,6 @@
     // Literals and identifiers
     NUMBER='NUMBER'
     STRING='STRING'
-    CHAR='CHAR'
     IDENTIFIER='IDENTIFIER'
     TYPE_NAME='TYPE_NAME'
     FUNCTION_NAME='FUNCTION_NAME'
@@ -148,9 +150,12 @@ private item ::= module_decl
                | bare_fn_decl
                | trait_decl
                | impl_decl
+               | colon_impl_decl
                | use_decl
                | test_decl
                | extern_decl
+               | template_decl
+               | reactive_decl
                | var_decl
                | mvar_decl
                | const_decl
@@ -158,12 +163,12 @@ private item ::= module_decl
                {recoverWhile=item_recover}
 
 // Recovery: stop at tokens that can start a new item (keywords, identifiers, EOF)
-private item_recover ::= !(FN | IF | TYPE_KW | TRAIT | USE | TEST | EXTERN | VAR | MVAR | CONST | MODULE_KW | PUB | PRIVATE | MATCH | FOR | WHILE | TRY | IMPORT | IMPL | IDENTIFIER | FUNCTION_NAME | TYPE_NAME | NUMBER | STRING | LPAREN | LBRACKET | LBRACE | MINUS | BANG | TILDE | BACKSLASH | RETURN | THROW | BREAK | CONTINUE | SPAWN | SPAWN_LINK | SPAWN_MONITOR | RECEIVE | QUOTE | TRUE | FALSE | <<eof>>)
+private item_recover ::= !(FN | IF | TYPE_KW | TRAIT | USE | TEST | EXTERN | VAR | MVAR | CONST | MODULE_KW | PUB | PRIVATE | MATCH | FOR | WHILE | TRY | IMPORT | IMPL | TEMPLATE | REACTIVE | AT | IDENTIFIER | FUNCTION_NAME | TYPE_NAME | NUMBER | STRING | LPAREN | LBRACKET | LBRACE | MINUS | BANG | TILDE | BACKSLASH | RETURN | THROW | BREAK | CONTINUE | SPAWN | SPAWN_LINK | SPAWN_MONITOR | RECEIVE | QUOTE | TRUE | FALSE | <<eof>>)
 
 // ===== Identifier helpers =====
 
-private ident ::= IDENTIFIER | FUNCTION_NAME
-private any_ident ::= IDENTIFIER | FUNCTION_NAME | TYPE_NAME
+private ident ::= IDENTIFIER | FUNCTION_NAME | SELF
+private any_ident ::= IDENTIFIER | FUNCTION_NAME | TYPE_NAME | SELF
 
 // ===== Top-level declarations =====
 
@@ -172,33 +177,49 @@ private module_body ::= item*
 
 visibility ::= PUB | PRIVATE
 
-fn_decl ::= visibility? FN ident '(' param_list? ')' [':' type_ref] '=' expr
+annotation ::= '@' any_ident ['(' arg_list? ')']
 
-// Keyword-less function definition: [pub] name(params) [-> Type] = expr
-bare_fn_decl ::= visibility? ident '(' pattern_list? ')' ['->' type_ref] '=' expr
+fn_decl ::= annotation* visibility? FN ident '(' param_list? ')' [(':' | '->') type_ref] '=' expr {pin='FN'}
+
+// Keyword-less function/value definition: [pub] name[(params)] [-> Type] = expr
+bare_fn_decl ::= annotation* visibility? ident ['(' bare_param_list? ')'] ['->' type_ref] '=' expr
+
+bare_param_list ::= bare_param (',' bare_param)*
+bare_param ::= pattern [':' type_ref] ['=' expr]
 
 param ::= ident [':' type_ref] ['=' expr]
 param_list ::= param (',' param)*
 
-type_decl ::= visibility? TYPE_KW TYPE_NAME type_params? '=' type_body {pin='TYPE_KW'}
+type_decl ::= annotation* visibility? TYPE_KW TYPE_NAME type_params? '=' type_body {pin='TYPE_KW'}
 
 type_params ::= '[' TYPE_NAME (',' TYPE_NAME)* ']'
 
-type_body ::= type_variant ('|' type_variant)* [DERIVING derive_list]
+type_body ::= ['|'] type_variant ('|' type_variant)* [DERIVING derive_list]
 type_variant ::= TYPE_NAME [variant_fields] | record_type_body
 variant_fields ::= '(' type_ref_list ')' | '{' field_type (',' field_type)* '}'
 record_type_body ::= '{' field_type (',' field_type)* '}'
-derive_list ::= TYPE_NAME (',' TYPE_NAME)*
+derive_list ::= '(' TYPE_NAME (',' TYPE_NAME)* ')'
 
-// Trait: trait Name [TypeParams] = members end  OR  trait Name { members }
-trait_decl ::= visibility? TRAIT TYPE_NAME type_params? (trait_eq_body | trait_brace_body) {pin='TRAIT'}
-private trait_eq_body ::= '=' trait_member* END
+// Trait: trait Name [TypeParams] [: Supertraits] [=] members end  OR  trait Name { members }
+trait_decl ::= visibility? TRAIT TYPE_NAME type_params? [':' trait_bound_list] (trait_eq_body | trait_brace_body) {pin='TRAIT'}
+trait_bound_list ::= TYPE_NAME (',' TYPE_NAME)*
+private trait_eq_body ::= ['='] trait_member* END
 trait_brace_body ::= '{' trait_member* '}'
-trait_member ::= fn_decl | bare_fn_decl
+trait_member ::= fn_decl | bare_fn_decl | fn_signature
+fn_signature ::= ident '(' param_list? ')' ['->' type_ref]
 
-// Impl: impl Trait for Type { members }
+// Impl: impl Trait for Type { members }  OR  Type: Trait members end
 impl_decl ::= IMPL TYPE_NAME FOR TYPE_NAME impl_body {pin='IMPL'}
 impl_body ::= '{' trait_member* '}'
+colon_impl_decl ::= TYPE_NAME [type_params] ':' TYPE_NAME [WHEN type_constraint_list] trait_member* END
+type_constraint_list ::= type_constraint (',' type_constraint)*
+type_constraint ::= TYPE_NAME ':' TYPE_NAME
+
+// Template: template name(params) = expr
+template_decl ::= TEMPLATE ident '(' param_list? ')' '=' expr {pin='TEMPLATE'}
+
+// Reactive: reactive TypeName = type_body
+reactive_decl ::= REACTIVE TYPE_NAME type_params? '=' type_body {pin='REACTIVE'}
 
 // Use: use path [.{names}] [from source] [as alias]
 use_decl ::= USE use_path ['.' '{' use_import_list '}'] [FROM string_expr] [AS ident] {pin='USE'}
@@ -229,7 +250,6 @@ expr ::= fat_arrow_expr
        | comp_group_expr
        | range_expr
        | concat_expr
-       | cons_expr
        | pipe_gt_expr
        | add_group_expr
        | mul_group_expr
@@ -251,7 +271,6 @@ eq_group_expr     ::= expr ('==' | '!=') expr
 comp_group_expr   ::= expr ('<' | '>' | '<=' | '>=') expr
 range_expr        ::= expr '..' expr
 concat_expr       ::= expr '++' expr
-cons_expr         ::= expr '::' expr                                {rightAssociative=true}
 pipe_gt_expr      ::= expr '|>' expr
 add_group_expr    ::= expr ('+' | '-') expr
 mul_group_expr    ::= expr ('*' | '/' | '%') expr
@@ -261,7 +280,7 @@ power_expr        ::= expr '**' expr                                {rightAssoci
 prefix_expr ::= ('-' | '!' | '~') expr
 
 // Postfix
-dot_expr   ::= expr '.' ident
+dot_expr   ::= expr '.' (ident | NUMBER)
 call_expr  ::= expr '(' arg_list? ')'
 index_expr ::= expr '[' index_arg ']'
 private index_arg ::= expr
@@ -293,13 +312,13 @@ private primary_group ::= literal_expr
                         | quote_expr
                         | string_expr
 
-literal_expr ::= NUMBER | CHAR | TRUE | FALSE
+literal_expr ::= NUMBER | TRUE | FALSE
 
 ref_expr ::= any_ident
 
 paren_expr ::= '(' ')' | '(' expr (',' expr)* ')'
 
-list_expr ::= '[' [expr (',' expr)*] ']'
+list_expr ::= '[' [expr (',' expr)* ['|' expr]] ']'
 
 record_expr ::= '{' field_init (',' field_init)* '}'
 field_init ::= ident ('=' | ':') expr
@@ -310,22 +329,24 @@ map_entry ::= expr ('=>' | ':') expr
 set_expr ::= '#{' [expr (',' expr)*] '}'
 
 block_expr ::= '{' block_body '}'
-private block_body ::= block_item+
+private block_body ::= block_item*
 private block_item ::= expr (';' | ',')?
 
-if_expr ::= IF expr THEN expr [ELSE expr] {pin='IF'}
+if_expr ::= IF expr (THEN expr [ELSE expr] | block_expr [ELSE (block_expr | if_expr)]) {pin='IF'}
 
-match_expr ::= MATCH expr (WITH match_arm+ | match_brace_body) {pin='MATCH'}
-match_arm ::= '|' pattern [WHEN expr] ('=>' | '->') expr
+match_expr ::= MATCH expr match_brace_body {pin='MATCH'}
+match_arm ::= '|' pattern [WHEN <<parseGuardExpr>>] ('=>' | '->') expr
 match_brace_body ::= '{' brace_match_arm+ '}'
-brace_match_arm ::= pattern [WHEN expr] ('=>' | '->') expr (';' | ',')?
+brace_match_arm ::= pattern [WHEN <<parseGuardExpr>>] ('=>' | '->') expr (';' | ',')?
 
-try_expr ::= TRY expr CATCH (match_arm+ [END] | try_brace_body) [FINALLY expr] {pin='TRY'}
+try_expr ::= TRY expr CATCH (ident block_expr | match_arm+ [END] | try_brace_body) [FINALLY expr] {pin='TRY'}
 try_brace_body ::= '{' brace_match_arm+ '}'
 
 while_expr ::= WHILE expr (DO expr | block_expr) {pin='WHILE'}
 
-for_expr ::= FOR pattern IN expr (DO expr | block_expr) {pin='FOR'}
+for_expr ::= FOR (for_in_clause | for_to_clause) (DO expr | block_expr) {pin='FOR'}
+private for_in_clause ::= pattern IN expr
+private for_to_clause ::= ident '=' expr TO expr
 
 backslash_lambda_expr ::= '\' lambda_params? '->' expr
 fn_lambda_expr ::= FN '(' param_list? ')' '->' expr
@@ -351,9 +372,8 @@ private string_part ::= STRING | INTERPOLATION_START expr INTERPOLATION_END
 
 pattern ::= or_pattern
 or_pattern ::= guard_pattern ('|' guard_pattern)*
-guard_pattern ::= as_pattern [WHEN expr]
-as_pattern ::= cons_pattern [AS ident]
-cons_pattern ::= primary_pattern ('::' primary_pattern)?
+guard_pattern ::= as_pattern
+as_pattern ::= primary_pattern [AS ident]
 
 private primary_pattern ::= wildcard_pattern
                            | literal_pattern
@@ -368,8 +388,8 @@ private primary_pattern ::= wildcard_pattern
                            | var_pattern
 
 wildcard_pattern ::= '_'
-var_pattern ::= IDENTIFIER
-literal_pattern ::= NUMBER | STRING | CHAR | TRUE | FALSE | MINUS NUMBER
+var_pattern ::= IDENTIFIER | SELF
+literal_pattern ::= NUMBER | STRING | TRUE | FALSE | MINUS NUMBER
 tuple_pattern ::= '(' [pattern_list] ')'
 list_pattern ::= '[' [guard_pattern (',' guard_pattern)* ['|' pattern]] ']'
 constructor_pattern ::= TYPE_NAME ['(' [pattern_list] ')']
@@ -378,7 +398,7 @@ field_pattern ::= ident ['=' pattern]
 map_pattern ::= '%{' [map_pattern_entry (',' map_pattern_entry)*] '}'
 map_pattern_entry ::= expr ('=>' | ':') pattern
 set_pattern ::= '#{' [pattern_list] '}'
-range_pattern ::= (NUMBER | CHAR) '..' (NUMBER | CHAR)
+range_pattern ::= (NUMBER | STRING) '..' (NUMBER | STRING)
 pin_pattern ::= '^' ident
 
 pattern_list ::= pattern (',' pattern)*
@@ -393,7 +413,7 @@ function_type ::= '(' [type_ref_list] ')' '->' type_ref
 private primary_type_ref ::= generic_type | tuple_type | record_type | simple_type
 
 generic_type ::= TYPE_NAME '[' type_ref_list ']'
-tuple_type ::= '(' type_ref ',' type_ref_list ')'
+tuple_type ::= '(' [type_ref_list] ')'
 record_type ::= '{' field_type (',' field_type)* '}'
 simple_type ::= TYPE_NAME | IDENTIFIER
 

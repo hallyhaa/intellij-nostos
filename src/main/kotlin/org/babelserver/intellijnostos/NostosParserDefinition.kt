@@ -19,8 +19,7 @@ private val COMMENTS = TokenSet.create(
     NostosTypes.BLOCK_COMMENT
 )
 private val STRINGS = TokenSet.create(
-    NostosTypes.STRING,
-    NostosTypes.CHAR
+    NostosTypes.STRING
 )
 
 class NostosParserDefinition : ParserDefinition {

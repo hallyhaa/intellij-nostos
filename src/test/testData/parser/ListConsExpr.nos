@@ -1,0 +1,2 @@
+insert_sorted(elem, [], f) = [elem]
+insert_sorted(elem, [h | t], f) = if f(elem) <= f(h) then [elem, h | t] else [h | insert_sorted(elem, t, f)]

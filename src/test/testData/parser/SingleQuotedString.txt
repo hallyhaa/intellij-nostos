@@ -1,0 +1,5 @@
+Nostos File
+  NostosStringExprImpl(NostosElementType.STRING_EXPR)
+    PsiElement(NostosTokenType.STRING)(''hello world'')
+    PsiWhiteSpace('\n\n')
+    PsiElement(NostosTokenType.STRING)(''{"key": "value"}'')

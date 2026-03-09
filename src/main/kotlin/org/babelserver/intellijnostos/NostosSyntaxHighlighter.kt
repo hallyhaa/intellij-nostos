@@ -22,7 +22,6 @@ class NostosSyntaxHighlighter : SyntaxHighlighterBase() {
             KEYWORD_TOKENS.contains(tokenType) -> KEYWORD_KEYS
             tokenType == NostosTypes.COMMENT || tokenType == NostosTypes.BLOCK_COMMENT -> COMMENT_KEYS
             tokenType == NostosTypes.STRING -> STRING_KEYS
-            tokenType == NostosTypes.CHAR -> STRING_KEYS
             tokenType == NostosTypes.NUMBER -> NUMBER_KEYS
             tokenType == NostosTypes.IDENTIFIER -> IDENTIFIER_KEYS
             tokenType == NostosTypes.TYPE_NAME -> TYPE_NAME_KEYS
@@ -50,7 +49,7 @@ class NostosSyntaxHighlighter : SyntaxHighlighterBase() {
             NostosTypes.SELF, NostosTypes.SELF_TYPE, NostosTypes.REACTIVE,
             NostosTypes.DERIVING, NostosTypes.WHERE, NostosTypes.FORALL,
             NostosTypes.EXTERN, NostosTypes.TEST, NostosTypes.QUOTE, NostosTypes.FROM,
-            NostosTypes.AS
+            NostosTypes.AS, NostosTypes.IMPL, NostosTypes.TEMPLATE
         )
 
         val OPERATOR_TOKENS: TokenSet = TokenSet.create(

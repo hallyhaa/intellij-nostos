@@ -1,0 +1,3 @@
+MyType: Show
+  show(self) -> String = "MyType"
+end

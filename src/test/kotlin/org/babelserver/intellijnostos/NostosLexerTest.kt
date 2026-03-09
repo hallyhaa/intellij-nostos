@@ -224,20 +224,29 @@ class NostosLexerTest {
         assertEquals(NostosTypes.STRING, type)
     }
 
-    // ==================== Characters ====================
+    // ==================== Single-quoted strings ====================
+    // Single-quoted strings produce multiple STRING tokens from the flex lexer,
+    // but MergingLexerAdapter merges consecutive STRING tokens into one.
 
     @Test
     fun simpleChar() {
         val (type, text) = singleToken("'a'")
-        assertEquals(NostosTypes.CHAR, type)
+        assertEquals(NostosTypes.STRING, type)
         assertEquals("'a'", text)
     }
 
     @Test
     fun escapedChar() {
         val (type, text) = singleToken("'\\n'")
-        assertEquals(NostosTypes.CHAR, type)
+        assertEquals(NostosTypes.STRING, type)
         assertEquals("'\\n'", text)
+    }
+
+    @Test
+    fun multiCharSingleQuotedString() {
+        val (type, text) = singleToken("'hello world'")
+        assertEquals(NostosTypes.STRING, type)
+        assertEquals("'hello world'", text)
     }
 
     // ==================== Numbers ====================
