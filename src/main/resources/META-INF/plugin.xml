@@ -39,5 +39,8 @@
         <lang.findUsagesProvider
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosFindUsagesProvider"/>
+        <completion.contributor
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosCompletionContributor"/>
     </extensions>
 </idea-plugin>
