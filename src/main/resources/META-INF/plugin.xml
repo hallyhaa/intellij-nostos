@@ -42,5 +42,8 @@
         <completion.contributor
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosCompletionContributor"/>
+        <lang.formatter
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosFormattingModelBuilder"/>
     </extensions>
 </idea-plugin>
