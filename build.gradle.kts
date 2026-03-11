@@ -39,6 +39,16 @@ intellijPlatform {
     pluginConfiguration {
         name = providers.gradleProperty("pluginName")
         version = providers.gradleProperty("pluginVersion")
+        ideaVersion {
+            sinceBuild = "243"
+            untilBuild = "251.*"
+        }
+    }
+    signing {
+        val home = System.getProperty("user.home")
+        certificateChainFile = file("$home/${providers.gradleProperty("signing.certificateChainFile").get()}")
+        privateKeyFile = file("$home/${providers.gradleProperty("signing.privateKeyFile").get()}")
+        password = providers.gradleProperty("signing.password")
     }
 }
 
