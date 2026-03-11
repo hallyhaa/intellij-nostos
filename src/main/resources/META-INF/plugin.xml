@@ -4,7 +4,7 @@
     <vendor url="https://github.com/hallyhaa/intellij-nostos">Hallvard Ystad</vendor>
 
     <description><![CDATA[
-    Language support for <a href="https://github.com/pegesund/nostos">Nostos</a>,
+    Language support for <a href="https://heynostos.tech">Nostos</a>,
     a functional-first programming language with lightweight concurrency,
     pattern matching, and non-blocking I/O.
     ]]></description>
