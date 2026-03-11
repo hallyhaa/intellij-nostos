@@ -30,5 +30,8 @@
         <lang.braceMatcher
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosBraceMatcher"/>
+        <lang.foldingBuilder
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosFoldingBuilder"/>
     </extensions>
 </idea-plugin>

@@ -1,0 +1,57 @@
+<fold text='#* ... *#'>#* This is a
+multi-line comment *#</fold>
+
+<fold text='# ======================================...'># ============================================================
+# List Helper Functions
+# Note: stdlib sortBy requires Ord on element type
+# ============================================================</fold>
+
+fn add(x: Int, y: Int): Int = x + y
+
+# Single comment should NOT fold
+
+fn process(items: List[Int]): Int = <fold text='{...}'>{
+    result = compute(items)
+    result + 1
+}</fold>
+
+last_destination(move) = <fold text='{...}'>{
+    dests = get_destinations(move)
+    if dests.isEmpty() then cell_out() else dests[dests.length() - 1]
+}</fold>
+
+type Person = <fold text='{...}'>{ name: String,
+  age: Int }</fold>
+
+trait Printable <fold text='{...}'>{
+    fn show(self) -> String
+}</fold>
+
+impl Printable for Person <fold text='{...}'>{
+    fn show(self) -> String = self.name
+}</fold>
+
+match x <fold text='{...}'>{
+    Some(v) -> v,
+    None -> 0
+}</fold>
+
+try compute() catch <fold text='{...}'>{
+    e -> handle(e)
+}</fold>
+
+receive <fold text='{...}'>{
+    msg -> process(msg)
+}</fold>
+
+test "example" <fold text='{...}'>{
+    assert(1 + 1 == 2)
+}</fold>
+
+items = <fold text='[...]'>[1, 2,
+  3, 4]</fold>
+
+tags = <fold text='#{...}'>#{
+  "a",
+  "b"
+}</fold>

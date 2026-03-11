@@ -1,37 +1,59 @@
 package org.babelserver.intellijnostos
 
-import com.intellij.testFramework.ParsingTestCase
+import com.intellij.psi.impl.DebugUtil
+import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import java.io.File
 
-class NostosParserTest : ParsingTestCase("parser", "nos", NostosParserDefinition()) {
+class NostosParserTest : BasePlatformTestCase() {
 
     override fun getTestDataPath(): String = "src/test/testData"
 
-    fun testFnDecl() = doTest(true)
-    fun testTypeDecl() = doTest(true)
-    fun testExpressions() = doTest(true)
-    fun testPatterns() = doTest(true)
-    fun testStringInterpolation() = doTest(true)
-    fun testControlFlow() = doTest(true)
-    fun testErrorRecovery() = doTest(true)
-    fun testBareFnDecl() = doTest(true)
-    fun testBraceMatch() = doTest(true)
-    fun testArrowLambda() = doTest(true)
-    fun testDestructuringImport() = doTest(true)
-    fun testNewlineBlock() = doTest(true)
-    fun testListConsPattern() = doTest(true)
-    fun testExampleRobot() = doTest(true)
-    fun testBlockBody() = doTest(true)
-    fun testIfBlock() = doTest(true)
-    fun testForToLoop() = doTest(true)
-    fun testTemplate() = doTest(true)
-    fun testReactive() = doTest(true)
-    fun testTryCatch() = doTest(true)
-    fun testSingleQuotedString() = doTest(true)
-    fun testColonImpl() = doTest(true)
-    fun testTraitSignature() = doTest(true)
-    fun testLeadingPipeType() = doTest(true)
-    fun testTypedBareParams() = doTest(true)
-    fun testUnitType() = doTest(true)
-    fun testListConsExpr() = doTest(true)
-    fun testSessionDebug() = doTest(true)
+    private fun doParserTest() {
+        val testName = getTestName(false)
+        myFixture.configureByFile("parser/$testName.nos")
+        val actual = DebugUtil.psiToString(myFixture.file, true, false)
+            .trimEnd()
+            .lines()
+            .dropLastWhile { it.trim().startsWith("PsiWhiteSpace") }
+            .joinToString("\n")
+
+        val expectedFile = File("$testDataPath/parser/$testName.txt")
+        if (!expectedFile.exists()) {
+            expectedFile.writeText(actual)
+            fail("Expected output file $expectedFile did not exist; created with actual content. Re-run test.")
+            return
+        }
+
+        val expected = expectedFile.readText().trimEnd()
+        assertEquals(expected, actual)
+    }
+
+    fun testFnDecl() = doParserTest()
+    fun testTypeDecl() = doParserTest()
+    fun testExpressions() = doParserTest()
+    fun testPatterns() = doParserTest()
+    fun testStringInterpolation() = doParserTest()
+    fun testControlFlow() = doParserTest()
+    fun testErrorRecovery() = doParserTest()
+    fun testBareFnDecl() = doParserTest()
+    fun testBraceMatch() = doParserTest()
+    fun testArrowLambda() = doParserTest()
+    fun testDestructuringImport() = doParserTest()
+    fun testNewlineBlock() = doParserTest()
+    fun testListConsPattern() = doParserTest()
+    fun testExampleRobot() = doParserTest()
+    fun testBlockBody() = doParserTest()
+    fun testIfBlock() = doParserTest()
+    fun testForToLoop() = doParserTest()
+    fun testTemplate() = doParserTest()
+    fun testReactive() = doParserTest()
+    fun testTryCatch() = doParserTest()
+    fun testSingleQuotedString() = doParserTest()
+    fun testColonImpl() = doParserTest()
+    fun testTraitSignature() = doParserTest()
+    fun testLeadingPipeType() = doParserTest()
+    fun testTypedBareParams() = doParserTest()
+    fun testUnitType() = doParserTest()
+    fun testListConsExpr() = doParserTest()
+    fun testSessionDebug() = doParserTest()
 }
