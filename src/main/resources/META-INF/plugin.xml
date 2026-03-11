@@ -9,6 +9,22 @@
     pattern matching, and non-blocking I/O.
     ]]></description>
 
+    <change-notes><![CDATA[
+    <b>0.1.0</b>
+    <ul>
+        <li>Initial release</li>
+        <li>Syntax highlighting</li>
+        <li>Parser with full language grammar support</li>
+        <li>Code completion for keywords</li>
+        <li>Go to Definition and Find Usages</li>
+        <li>Code formatting and indentation</li>
+        <li>Structure view</li>
+        <li>Code folding</li>
+        <li>Brace matching</li>
+        <li>Line and block commenting</li>
+    </ul>
+    ]]></change-notes>
+
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">
