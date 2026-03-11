@@ -36,5 +36,8 @@
         <lang.psiStructureViewFactory
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosStructureViewFactory"/>
+        <lang.findUsagesProvider
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosFindUsagesProvider"/>
     </extensions>
 </idea-plugin>

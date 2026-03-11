@@ -15,6 +15,14 @@
 
   parserUtilClass="org.babelserver.intellijnostos.parser.NostosParserUtil"
 
+  // Named element mixin for declarations that define names
+  implements("fn_decl|bare_fn_decl|extern_decl|template_decl|fn_signature|type_decl|trait_decl|reactive_decl|module_decl|var_decl|mvar_decl|const_decl|param|bare_param|type_variant")="org.babelserver.intellijnostos.psi.NostosNamedElement"
+  mixin("fn_decl|bare_fn_decl|extern_decl|template_decl|fn_signature|type_decl|trait_decl|reactive_decl|module_decl|var_decl|mvar_decl|const_decl|param|bare_param|type_variant")="org.babelserver.intellijnostos.psi.impl.NostosNamedElementImpl"
+
+  // Reference mixins for usage sites
+  mixin("ref_expr")="org.babelserver.intellijnostos.psi.impl.NostosRefExprMixin"
+  mixin("simple_type|generic_type|constructor_pattern")="org.babelserver.intellijnostos.psi.impl.NostosTypeRefMixin"
+
   tokens=[
     // Keywords
     FN='fn'
