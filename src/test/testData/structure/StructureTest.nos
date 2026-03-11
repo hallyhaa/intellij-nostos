@@ -1,0 +1,40 @@
+import Std.List
+
+use Http.Server
+
+module Helpers
+    fn double(n: Int): Int = n * 2
+end
+
+type Colour = Red | Green | Blue
+
+type Person = { name: String, age: Int }
+
+reactive Counter = Increment | Decrement | Reset
+
+trait Printable {
+    fn show(self) -> String
+}
+
+impl Printable for Person {
+    fn show(self) -> String = self.name
+}
+
+fn add(x: Int, y: Int): Int = x + y
+
+last_destination(move) = {
+    dests = get_destinations(move)
+    if dests.isEmpty() then cell_out() else dests[dests.length() - 1]
+}
+
+template page(title: String) = "<html>" ++ title ++ "</html>"
+
+extern fn greet(name: String): String
+
+var x = 42
+mvar count = 0
+const MAX = 100
+
+test "addition" {
+    assert(1 + 1 == 2)
+}

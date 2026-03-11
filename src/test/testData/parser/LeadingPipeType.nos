@@ -1,0 +1,4 @@
+type WsResult[T] =
+    | WsOk(T)
+    | WsError(String)
+    | WsClosed

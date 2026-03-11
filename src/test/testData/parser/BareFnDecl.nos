@@ -1,0 +1,11 @@
+type Colour = Red | Green | Blue
+
+winning_score = 60
+
+colour_index(Red) = 0
+colour_index(Green) = 1
+colour_index(Blue) = 2
+
+is_out(cell) -> Bool = cell.value == -1
+
+add(a, b) = a + b

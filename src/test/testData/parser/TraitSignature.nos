@@ -1,0 +1,8 @@
+trait Show
+  show(self) -> String
+end
+
+trait Eq[T]
+  eq(self, other: T) -> Bool
+  neq(self, other: T) -> Bool
+end

@@ -13,6 +13,16 @@
   elementTypeClass="org.babelserver.intellijnostos.psi.NostosElementType"
   tokenTypeClass="org.babelserver.intellijnostos.psi.NostosTokenType"
 
+  parserUtilClass="org.babelserver.intellijnostos.parser.NostosParserUtil"
+
+  // Named element mixin for declarations that define names
+  implements("fn_decl|bare_fn_decl|extern_decl|template_decl|fn_signature|type_decl|trait_decl|reactive_decl|module_decl|var_decl|mvar_decl|const_decl|param|bare_param|type_variant")="org.babelserver.intellijnostos.psi.NostosNamedElement"
+  mixin("fn_decl|bare_fn_decl|extern_decl|template_decl|fn_signature|type_decl|trait_decl|reactive_decl|module_decl|var_decl|mvar_decl|const_decl|param|bare_param|type_variant")="org.babelserver.intellijnostos.psi.impl.NostosNamedElementImpl"
+
+  // Reference mixins for usage sites
+  mixin("ref_expr")="org.babelserver.intellijnostos.psi.impl.NostosRefExprMixin"
+  mixin("simple_type|generic_type|constructor_pattern")="org.babelserver.intellijnostos.psi.impl.NostosTypeRefMixin"
+
   tokens=[
     // Keywords
     FN='fn'
@@ -64,6 +74,8 @@
     QUOTE='quote'
     FROM='from'
     AS='as'
+    IMPL='impl'
+    TEMPLATE='template'
 
     // Single-char operators
     PLUS='+'
@@ -125,7 +137,6 @@
     // Literals and identifiers
     NUMBER='NUMBER'
     STRING='STRING'
-    CHAR='CHAR'
     IDENTIFIER='IDENTIFIER'
     TYPE_NAME='TYPE_NAME'
     FUNCTION_NAME='FUNCTION_NAME'
@@ -141,71 +152,112 @@
 nostosFile ::= item*
 
 private item ::= module_decl
+               | import_decl
                | type_decl
                | fn_decl
+               | bare_fn_decl
                | trait_decl
+               | impl_decl
+               | colon_impl_decl
                | use_decl
                | test_decl
                | extern_decl
+               | template_decl
+               | reactive_decl
                | var_decl
                | mvar_decl
                | const_decl
                | expr
                {recoverWhile=item_recover}
 
-private item_recover ::= !(FN | IF | TYPE_KW | TRAIT | USE | TEST | EXTERN | VAR | MVAR | CONST | MODULE_KW | PUB | PRIVATE | MATCH | FOR | WHILE | TRY | <<eof>>)
+// Recovery: stop at tokens that can start a new item (keywords, identifiers, EOF)
+private item_recover ::= !(END | FN | IF | TYPE_KW | TRAIT | USE | TEST | EXTERN | VAR | MVAR | CONST | MODULE_KW | PUB | PRIVATE | MATCH | FOR | WHILE | TRY | IMPORT | IMPL | TEMPLATE | REACTIVE | AT | IDENTIFIER | FUNCTION_NAME | TYPE_NAME | NUMBER | STRING | LPAREN | LBRACKET | LBRACE | MINUS | BANG | TILDE | BACKSLASH | RETURN | THROW | BREAK | CONTINUE | SPAWN | SPAWN_LINK | SPAWN_MONITOR | RECEIVE | QUOTE | TRUE | FALSE | <<eof>>)
 
 // ===== Identifier helpers =====
 
-private ident ::= IDENTIFIER | FUNCTION_NAME
-private any_ident ::= IDENTIFIER | FUNCTION_NAME | TYPE_NAME
+private ident ::= IDENTIFIER | FUNCTION_NAME | SELF
+private any_ident ::= IDENTIFIER | FUNCTION_NAME | TYPE_NAME | SELF
 
 // ===== Top-level declarations =====
 
-module_decl ::= MODULE_KW TYPE_NAME
+module_decl ::= MODULE_KW TYPE_NAME [module_body END] {pin='MODULE_KW'}
+private module_body ::= item*
 
 visibility ::= PUB | PRIVATE
 
-fn_decl ::= visibility? FN ident '(' param_list? ')' [':' type_ref] '=' expr
+annotation ::= '@' any_ident ['(' arg_list? ')']
 
-param ::= ident [':' type_ref]
+fn_decl ::= annotation* visibility? FN ident '(' param_list? ')' [(':' | '->') type_ref] '=' expr {pin='FN'}
+
+// Keyword-less function/value definition: [pub] name[(params)] [-> Type] = expr
+bare_fn_decl ::= annotation* visibility? ident ['(' bare_param_list? ')'] ['->' type_ref] '=' expr
+
+bare_param_list ::= bare_param (',' bare_param)*
+bare_param ::= pattern [':' type_ref] ['=' expr]
+
+param ::= ident [':' type_ref] ['=' expr]
 param_list ::= param (',' param)*
 
-type_decl ::= visibility? TYPE_KW TYPE_NAME type_params? '=' type_body {pin='TYPE_KW'}
+type_decl ::= annotation* visibility? TYPE_KW TYPE_NAME type_params? '=' type_body {pin='TYPE_KW'}
 
 type_params ::= '[' TYPE_NAME (',' TYPE_NAME)* ']'
 
-type_body ::= type_variant ('|' type_variant)* [DERIVING derive_list]
-type_variant ::= TYPE_NAME ['(' type_ref_list ')'] | record_type_body
+type_body ::= ['|'] type_variant ('|' type_variant)* [DERIVING derive_list]
+type_variant ::= TYPE_NAME [variant_fields] | record_type_body
+variant_fields ::= '(' type_ref_list ')' | '{' field_type (',' field_type)* '}'
 record_type_body ::= '{' field_type (',' field_type)* '}'
-derive_list ::= TYPE_NAME (',' TYPE_NAME)*
+derive_list ::= '(' TYPE_NAME (',' TYPE_NAME)* ')'
 
-trait_decl ::= visibility? TRAIT TYPE_NAME type_params? '=' trait_member* END {pin='TRAIT'}
-trait_member ::= fn_decl
+// Trait: trait Name [TypeParams] [: Supertraits] [=] members end  OR  trait Name { members }
+trait_decl ::= visibility? TRAIT TYPE_NAME type_params? [':' trait_bound_list] (trait_eq_body | trait_brace_body) {pin='TRAIT'}
+trait_bound_list ::= TYPE_NAME (',' TYPE_NAME)*
+private trait_eq_body ::= ['='] trait_member* END
+trait_brace_body ::= '{' trait_member* '}'
+trait_member ::= fn_decl | bare_fn_decl | fn_signature
+fn_signature ::= ident '(' param_list? ')' ['->' type_ref]
 
-use_decl ::= USE use_path [FROM string_expr] [AS ident] {pin='USE'}
+// Impl: impl Trait for Type { members }  OR  Type: Trait members end
+impl_decl ::= IMPL TYPE_NAME FOR TYPE_NAME impl_body {pin='IMPL'}
+impl_body ::= '{' trait_member* '}'
+colon_impl_decl ::= TYPE_NAME [type_params] ':' TYPE_NAME [WHEN type_constraint_list] trait_member* END
+type_constraint_list ::= type_constraint (',' type_constraint)*
+type_constraint ::= TYPE_NAME ':' TYPE_NAME
+
+// Template: template name(params) = expr
+template_decl ::= TEMPLATE ident '(' param_list? ')' '=' expr {pin='TEMPLATE'}
+
+// Reactive: reactive TypeName = type_body
+reactive_decl ::= REACTIVE TYPE_NAME type_params? '=' type_body {pin='REACTIVE'}
+
+// Use: use path [.{names}] [from source] [as alias]
+use_decl ::= USE use_path ['.' '{' use_import_list '}'] [FROM string_expr] [AS ident] {pin='USE'}
 use_path ::= any_ident ('.' any_ident)*
+use_import_list ::= any_ident (',' any_ident)*
+
+// Import: import path [.{names}]
+import_decl ::= IMPORT use_path ['.' '{' use_import_list '}'] {pin='IMPORT'}
 
 test_decl ::= TEST string_expr block_expr {pin='TEST'}
 
 extern_decl ::= EXTERN FN ident '(' param_list? ')' ':' type_ref {pin='EXTERN'}
 
-var_decl ::= VAR ident [':' type_ref] '=' expr {pin='VAR'}
-mvar_decl ::= MVAR ident [':' type_ref] '=' expr {pin='MVAR'}
-const_decl ::= CONST ident [':' type_ref] '=' expr {pin='CONST'}
+var_decl ::= VAR any_ident [':' type_ref] '=' expr {pin='VAR'}
+mvar_decl ::= MVAR any_ident [':' type_ref] '=' expr {pin='MVAR'}
+const_decl ::= CONST any_ident [':' type_ref] '=' expr {pin='CONST'}
 
 // ===== Expressions =====
 // Order determines precedence: first alternative = lowest precedence.
 // Grammar-Kit extends(".*_expr") = expr generates Pratt parser.
 
-expr ::= assign_group_expr
+expr ::= fat_arrow_expr
+       | assign_group_expr
        | send_expr
        | pipe_pipe_expr
        | amp_amp_expr
        | eq_group_expr
        | comp_group_expr
        | range_expr
-       | cons_expr
+       | concat_expr
        | pipe_gt_expr
        | add_group_expr
        | mul_group_expr
@@ -217,6 +269,8 @@ expr ::= assign_group_expr
        | primary_group
 
 // Binary expressions (lowest to highest precedence)
+// Arrow lambda: x => expr, (x, y) => expr — lowest precedence binary operator
+fat_arrow_expr    ::= expr '=>' expr                                {rightAssociative=true}
 assign_group_expr ::= expr ('=' | '+=' | '-=' | '*=' | '/=') expr  {rightAssociative=true}
 send_expr         ::= expr '<-' expr                                {rightAssociative=true}
 pipe_pipe_expr    ::= expr '||' expr
@@ -224,9 +278,9 @@ amp_amp_expr      ::= expr '&&' expr
 eq_group_expr     ::= expr ('==' | '!=') expr
 comp_group_expr   ::= expr ('<' | '>' | '<=' | '>=') expr
 range_expr        ::= expr '..' expr
-cons_expr         ::= expr '::' expr                                {rightAssociative=true}
+concat_expr       ::= expr '++' expr
 pipe_gt_expr      ::= expr '|>' expr
-add_group_expr    ::= expr ('+' | '-' | '++') expr
+add_group_expr    ::= expr ('+' | '-') expr
 mul_group_expr    ::= expr ('*' | '/' | '%') expr
 power_expr        ::= expr '**' expr                                {rightAssociative=true}
 
@@ -234,9 +288,10 @@ power_expr        ::= expr '**' expr                                {rightAssoci
 prefix_expr ::= ('-' | '!' | '~') expr
 
 // Postfix
-dot_expr   ::= expr '.' ident
+dot_expr   ::= expr '.' (ident | NUMBER)
 call_expr  ::= expr '(' arg_list? ')'
-index_expr ::= expr '[' expr ']'
+index_expr ::= expr '[' index_arg ']'
+private index_arg ::= expr
 
 arg_list ::= expr (',' expr)*
 
@@ -245,10 +300,10 @@ private primary_group ::= literal_expr
                         | ref_expr
                         | paren_expr
                         | list_expr
-                        | record_expr
                         | map_expr
                         | set_expr
                         | block_expr
+                        | record_expr
                         | if_expr
                         | match_expr
                         | try_expr
@@ -265,13 +320,13 @@ private primary_group ::= literal_expr
                         | quote_expr
                         | string_expr
 
-literal_expr ::= NUMBER | CHAR | TRUE | FALSE
+literal_expr ::= NUMBER | TRUE | FALSE
 
 ref_expr ::= any_ident
 
 paren_expr ::= '(' ')' | '(' expr (',' expr)* ')'
 
-list_expr ::= '[' [expr (',' expr)*] ']'
+list_expr ::= '[' [expr (',' expr)* ['|' expr]] ']'
 
 record_expr ::= '{' field_init (',' field_init)* '}'
 field_init ::= ident ('=' | ':') expr
@@ -282,18 +337,24 @@ map_entry ::= expr ('=>' | ':') expr
 set_expr ::= '#{' [expr (',' expr)*] '}'
 
 block_expr ::= '{' block_body '}'
-private block_body ::= expr (';' expr)*
+private block_body ::= block_item*
+private block_item ::= expr (';' | ',')?
 
-if_expr ::= IF expr THEN expr [ELSE expr] {pin='IF'}
+if_expr ::= IF expr (THEN expr [ELSE expr] | block_expr [ELSE (block_expr | if_expr)]) {pin='IF'}
 
-match_expr ::= MATCH expr WITH match_arm+ {pin='MATCH'}
-match_arm ::= '|' pattern [WHEN expr] ('=>' | '->') expr
+match_expr ::= MATCH expr match_brace_body {pin='MATCH'}
+match_arm ::= '|' pattern [WHEN <<parseGuardExpr>>] ('=>' | '->') expr
+match_brace_body ::= '{' brace_match_arm+ '}'
+brace_match_arm ::= pattern [WHEN <<parseGuardExpr>>] ('=>' | '->') expr (';' | ',')?
 
-try_expr ::= TRY expr CATCH match_arm+ [FINALLY expr] {pin='TRY'}
+try_expr ::= TRY expr CATCH (ident block_expr | match_arm+ [END] | try_brace_body) [FINALLY expr] {pin='TRY'}
+try_brace_body ::= '{' brace_match_arm+ '}'
 
-while_expr ::= WHILE expr DO expr {pin='WHILE'}
+while_expr ::= WHILE expr (DO expr | block_expr) {pin='WHILE'}
 
-for_expr ::= FOR pattern IN expr DO expr {pin='FOR'}
+for_expr ::= FOR (for_in_clause | for_to_clause) (DO expr | block_expr) {pin='FOR'}
+private for_in_clause ::= pattern IN expr
+private for_to_clause ::= ident '=' expr TO expr
 
 backslash_lambda_expr ::= '\' lambda_params? '->' expr
 fn_lambda_expr ::= FN '(' param_list? ')' '->' expr
@@ -302,7 +363,8 @@ lambda_params ::= ident (',' ident)*
 
 spawn_expr ::= (SPAWN | SPAWN_LINK | SPAWN_MONITOR) expr
 
-receive_expr ::= RECEIVE match_arm+ [AFTER expr '=>' expr] {pin='RECEIVE'}
+receive_expr ::= RECEIVE (match_arm+ | receive_brace_body) [AFTER expr '=>' expr] {pin='RECEIVE'}
+receive_brace_body ::= '{' brace_match_arm+ '}'
 
 return_expr ::= RETURN expr?
 throw_expr ::= THROW expr
@@ -318,9 +380,8 @@ private string_part ::= STRING | INTERPOLATION_START expr INTERPOLATION_END
 
 pattern ::= or_pattern
 or_pattern ::= guard_pattern ('|' guard_pattern)*
-guard_pattern ::= as_pattern [WHEN expr]
-as_pattern ::= cons_pattern [AS ident]
-cons_pattern ::= primary_pattern ('::' primary_pattern)?
+guard_pattern ::= as_pattern
+as_pattern ::= primary_pattern [AS ident]
 
 private primary_pattern ::= wildcard_pattern
                            | literal_pattern
@@ -331,20 +392,22 @@ private primary_pattern ::= wildcard_pattern
                            | map_pattern
                            | set_pattern
                            | range_pattern
+                           | pin_pattern
                            | var_pattern
 
 wildcard_pattern ::= '_'
-var_pattern ::= IDENTIFIER
-literal_pattern ::= NUMBER | STRING | CHAR | TRUE | FALSE | MINUS NUMBER
+var_pattern ::= IDENTIFIER | SELF
+literal_pattern ::= NUMBER | STRING | TRUE | FALSE | MINUS NUMBER
 tuple_pattern ::= '(' [pattern_list] ')'
-list_pattern ::= '[' [pattern_list] ']'
+list_pattern ::= '[' [guard_pattern (',' guard_pattern)* ['|' pattern]] ']'
 constructor_pattern ::= TYPE_NAME ['(' [pattern_list] ')']
 record_pattern ::= '{' [field_pattern (',' field_pattern)*] '}'
 field_pattern ::= ident ['=' pattern]
 map_pattern ::= '%{' [map_pattern_entry (',' map_pattern_entry)*] '}'
 map_pattern_entry ::= expr ('=>' | ':') pattern
 set_pattern ::= '#{' [pattern_list] '}'
-range_pattern ::= (NUMBER | CHAR) '..' (NUMBER | CHAR)
+range_pattern ::= (NUMBER | STRING) '..' (NUMBER | STRING)
+pin_pattern ::= '^' ident
 
 pattern_list ::= pattern (',' pattern)*
 
@@ -358,7 +421,7 @@ function_type ::= '(' [type_ref_list] ')' '->' type_ref
 private primary_type_ref ::= generic_type | tuple_type | record_type | simple_type
 
 generic_type ::= TYPE_NAME '[' type_ref_list ']'
-tuple_type ::= '(' type_ref ',' type_ref_list ')'
+tuple_type ::= '(' [type_ref_list] ')'
 record_type ::= '{' field_type (',' field_type)* '}'
 simple_type ::= TYPE_NAME | IDENTIFIER
 

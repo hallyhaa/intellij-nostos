@@ -30,5 +30,20 @@
         <lang.braceMatcher
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosBraceMatcher"/>
+        <lang.foldingBuilder
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosFoldingBuilder"/>
+        <lang.psiStructureViewFactory
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosStructureViewFactory"/>
+        <lang.findUsagesProvider
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosFindUsagesProvider"/>
+        <completion.contributor
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosCompletionContributor"/>
+        <lang.formatter
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosFormattingModelBuilder"/>
     </extensions>
 </idea-plugin>

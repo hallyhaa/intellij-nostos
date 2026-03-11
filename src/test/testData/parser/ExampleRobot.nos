@@ -1,0 +1,57 @@
+use stdlib.list.{Option, Some, None}
+
+type Colour = Red | Green | Blue
+type Cell = { value: Int }
+type Pawn = { value: Int }
+type Move = Pass | Score(Int) | Board(Pawn, List[Cell])
+
+winning_score = 60
+
+colour_index(Red) = 0
+colour_index(Green) = 1
+colour_index(Blue) = 2
+
+cell_out() = Cell(-1)
+
+is_out(cell) -> Bool = cell.value == -1
+is_on_board(cell) -> Bool = cell.value >= 0 && cell.value <= 20
+
+colour_positions(state, Red) = state.board.red.map(v => Cell(v))
+colour_positions(state, Green) = state.board.green.map(v => Cell(v))
+
+list_sort_by(list, f) = list.fold([], (acc, x) => insert_sorted(x, acc, f))
+
+is_board_move(Pass) -> Bool = false
+is_board_move(Score(_)) -> Bool = false
+is_board_move(Board(_, _)) -> Bool = true
+
+board_moves(moves) = moves.filter(m => is_board_move(m))
+
+last_destination(move) = {
+    dests = get_destinations(move)
+    if dests.isEmpty() then cell_out() else dests[dests.length() - 1]
+}
+
+climber_select_move(state, valid_moves) = {
+    current_score = state.scoreBoard[colour_index(state.colourInTurn)]
+    max_scoring_row = winning_score - current_score - 1
+
+    climbs = climbing_moves(valid_moves, state)
+    safe_climb = climbs.find(m => cell_row(last_destination(m)) <= max_scoring_row)
+    match safe_climb {
+        Some(climb) -> climb,
+        None -> try_scoring(state, valid_moves)
+    }
+}
+
+main() = {
+    state = test_state()
+    moves = test_valid_moves()
+    selected = climber_select_move(state, moves)
+
+    match selected {
+        Pass -> println("Selected: PASS")
+        Score(n) -> println("Selected: SCORE " ++ show(n))
+        Board(p, dests) -> println("Selected: MOVE pawn " ++ show(p.value))
+    }
+}

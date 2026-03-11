@@ -17,7 +17,7 @@ import static org.babelserver.intellijnostos.psi.NostosTypes.*;
 
 %state S_BLOCK_COMMENT
 %state S_STRING
-%state S_CHAR_LIT
+%state S_SINGLE_STRING
 
 %{
     public NostosFlexLexer() {
@@ -79,6 +79,8 @@ import static org.babelserver.intellijnostos.psi.NostosTypes.*;
             case "quote": return QUOTE;
             case "from": return FROM;
             case "as": return AS;
+            case "impl": return IMPL;
+            case "template": return TEMPLATE;
             case "_": return UNDERSCORE;
             default:
                 if (Character.isUpperCase(text.charAt(0))) {
@@ -136,13 +138,14 @@ FloatNumber     = {DecInteger} {FracPart} {Exponent}? {DecimalSuffix}?
     <<EOF>>         { yybegin(YYINITIAL); return STRING; }
 }
 
-/* ===== S_CHAR_LIT state ===== */
+/* ===== S_SINGLE_STRING state (single-quoted strings, no interpolation) ===== */
 
-<S_CHAR_LIT> {
-    \'              { yybegin(YYINITIAL); return CHAR; }
-    \\[^\r\n]       { return CHAR; }
-    [^\'\\\r\n]     { return CHAR; }
-    <<EOF>>         { yybegin(YYINITIAL); return CHAR; }
+<S_SINGLE_STRING> {
+    \'              { yybegin(YYINITIAL); return STRING; }
+    \\[^\r\n]       { return STRING; }
+    [^\'\\\r\n]+    { return STRING; }
+    {LineTerminator} { return STRING; }
+    <<EOF>>         { yybegin(YYINITIAL); return STRING; }
 }
 
 /* ===== YYINITIAL state ===== */
@@ -164,8 +167,8 @@ FloatNumber     = {DecInteger} {FracPart} {Exponent}? {DecimalSuffix}?
     // String start
     \"                              { yybegin(S_STRING); return STRING; }
 
-    // Char literal start
-    \'                              { yybegin(S_CHAR_LIT); return CHAR; }
+    // Single-quoted string start
+    \'                              { yybegin(S_SINGLE_STRING); return STRING; }
 
     // Numbers (specific before general)
     {HexInteger}                    { return NUMBER; }

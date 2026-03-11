@@ -18,8 +18,7 @@ class NostosLexerAdapter : MergingLexerAdapterBase(
     companion object {
         private val TOKENS_TO_MERGE = setOf(
             NostosTypes.BLOCK_COMMENT,
-            NostosTypes.STRING,
-            NostosTypes.CHAR
+            NostosTypes.STRING
         )
     }
 }

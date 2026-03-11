@@ -1,0 +1,6 @@
+pub ws_url(server_url: String, player_id: String) -> String = "ws://" ++ server_url
+
+parse_int(s: String, default) = default
+
+json_field(Object(pairs), key) = findField(pairs, key)
+json_field(_, _) = default

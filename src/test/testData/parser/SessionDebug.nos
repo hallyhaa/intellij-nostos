@@ -1,0 +1,29 @@
+spawn_workers(_, _, [], _) = ()
+spawn_workers(parent, f, [h | t], idx) = {
+    spawn {
+        result = try { f(h) } catch {
+            e -> {
+                log_error("session", "Worker crashed")
+                None
+            }
+        }
+        parent <- (idx, result)
+    }
+    spawn_workers(parent, f, t, idx + 1)
+}
+
+collect_results(0, acc) = acc
+collect_results(n, acc) = collect_results(n - 1, [receive { m -> m } | acc])
+
+sort_pairs([]) = []
+sort_pairs([h | t]) = insert_pair(h, sort_pairs(t))
+insert_pair(x, []) = [x]
+insert_pair((i1, v1), [(i2, v2) | t]) =
+    if i1 <= i2 then [(i1, v1), (i2, v2) | t]
+    else [(i2, v2) | insert_pair((i1, v1), t)]
+
+parMap(list, f) = {
+    me = self()
+    spawn_workers(me, f, list, 0)
+    sort_pairs(collect_results(list.length(), [])).map(entry => entry.1)
+}

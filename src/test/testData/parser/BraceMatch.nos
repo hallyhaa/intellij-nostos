@@ -1,0 +1,10 @@
+match x {
+    Some(v) -> v,
+    None -> 0
+}
+
+match selected {
+    Pass -> println("pass")
+    Score(n) -> println(n)
+    Board(p, dests) -> println(p)
+}

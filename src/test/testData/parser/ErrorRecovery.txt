@@ -20,21 +20,24 @@ Nostos File
       NostosLiteralExprImpl(NostosElementType.LITERAL_EXPR)
         PsiElement(NostosTokenType.NUMBER)('1')
   PsiWhiteSpace('\n\n')
-  PsiElement(NostosTokenType.fn)('fn')
-  PsiWhiteSpace(' ')
-  PsiElement(NostosTokenType.FUNCTION_NAME)('bad')
-  PsiElement(NostosTokenType.()('(')
-  PsiWhiteSpace(' ')
-  PsiErrorElement:<param list> or NostosTokenType.) expected, got '='
+  NostosFnDeclImpl(NostosElementType.FN_DECL)
+    PsiElement(NostosTokenType.fn)('fn')
+    PsiWhiteSpace(' ')
+    PsiElement(NostosTokenType.FUNCTION_NAME)('bad')
+    PsiElement(NostosTokenType.()('(')
+    PsiErrorElement:<param> or NostosTokenType.) expected, got '='
+      <empty list>
+    PsiWhiteSpace(' ')
     PsiElement(NostosTokenType.=)('=')
   PsiWhiteSpace(' ')
   PsiElement(NostosTokenType.@)('@')
+  PsiErrorElement:NostosTokenType.FUNCTION_NAME, NostosTokenType.IDENTIFIER, NostosTokenType.TYPE_NAME or NostosTokenType.self expected, got '@'
+    <empty list>
   PsiElement(NostosTokenType.@)('@')
-  PsiElement(NostosTokenType.@)('@')
-  PsiWhiteSpace('\n\n')
-  PsiErrorElement:'fn' unexpected
-    PsiElement(NostosTokenType.fn)('fn')
   PsiElement(DUMMY_BLOCK)
+    PsiElement(NostosTokenType.@)('@')
+    PsiWhiteSpace('\n\n')
+    PsiElement(NostosTokenType.fn)('fn')
     PsiWhiteSpace(' ')
     PsiElement(NostosTokenType.FUNCTION_NAME)('also_good')
   PsiElement(DUMMY_BLOCK)
