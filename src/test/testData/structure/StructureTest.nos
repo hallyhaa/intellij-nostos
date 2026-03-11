@@ -2,6 +2,10 @@ import Std.List
 
 use Http.Server
 
+module Helpers
+    fn double(n: Int): Int = n * 2
+end
+
 type Colour = Red | Green | Blue
 
 type Person = { name: String, age: Int }
@@ -29,7 +33,7 @@ extern fn greet(name: String): String
 
 var x = 42
 mvar count = 0
-const max_val = 100
+const MAX = 100
 
 test "addition" {
     assert(1 + 1 == 2)

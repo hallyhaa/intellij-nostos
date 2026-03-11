@@ -17,6 +17,7 @@ class NostosStructureViewTest : BasePlatformTestCase() {
                 texts,
                 "import Std.List",
                 "use Http.Server",
+                "module Helpers",
                 "type Colour",
                 "type Person",
                 "reactive Counter",
@@ -28,9 +29,22 @@ class NostosStructureViewTest : BasePlatformTestCase() {
                 "extern greet(name)",
                 "var x",
                 "mvar count",
-                "const max_val",
+                "const MAX",
                 "test \"addition\"",
             )
+        }
+    }
+
+    fun testModuleChildren() {
+        myFixture.configureByFile("structure/StructureTest.nos")
+        myFixture.testStructureView { view ->
+            val root = view.treeModel.root as NostosStructureViewElement
+            val children = root.children.map { it as NostosStructureViewElement }
+            val childMap = children.associateBy { it.presentation.presentableText }
+
+            val moduleChildren = childMap["module Helpers"]!!.children
+                .map { (it as NostosStructureViewElement).presentation.presentableText }
+            assertContainsOrdered(moduleChildren, "double(n)")
         }
     }
 

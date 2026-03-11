@@ -163,7 +163,7 @@ private item ::= module_decl
                {recoverWhile=item_recover}
 
 // Recovery: stop at tokens that can start a new item (keywords, identifiers, EOF)
-private item_recover ::= !(FN | IF | TYPE_KW | TRAIT | USE | TEST | EXTERN | VAR | MVAR | CONST | MODULE_KW | PUB | PRIVATE | MATCH | FOR | WHILE | TRY | IMPORT | IMPL | TEMPLATE | REACTIVE | AT | IDENTIFIER | FUNCTION_NAME | TYPE_NAME | NUMBER | STRING | LPAREN | LBRACKET | LBRACE | MINUS | BANG | TILDE | BACKSLASH | RETURN | THROW | BREAK | CONTINUE | SPAWN | SPAWN_LINK | SPAWN_MONITOR | RECEIVE | QUOTE | TRUE | FALSE | <<eof>>)
+private item_recover ::= !(END | FN | IF | TYPE_KW | TRAIT | USE | TEST | EXTERN | VAR | MVAR | CONST | MODULE_KW | PUB | PRIVATE | MATCH | FOR | WHILE | TRY | IMPORT | IMPL | TEMPLATE | REACTIVE | AT | IDENTIFIER | FUNCTION_NAME | TYPE_NAME | NUMBER | STRING | LPAREN | LBRACKET | LBRACE | MINUS | BANG | TILDE | BACKSLASH | RETURN | THROW | BREAK | CONTINUE | SPAWN | SPAWN_LINK | SPAWN_MONITOR | RECEIVE | QUOTE | TRUE | FALSE | <<eof>>)
 
 // ===== Identifier helpers =====
 
@@ -233,9 +233,9 @@ test_decl ::= TEST string_expr block_expr {pin='TEST'}
 
 extern_decl ::= EXTERN FN ident '(' param_list? ')' ':' type_ref {pin='EXTERN'}
 
-var_decl ::= VAR ident [':' type_ref] '=' expr {pin='VAR'}
-mvar_decl ::= MVAR ident [':' type_ref] '=' expr {pin='MVAR'}
-const_decl ::= CONST ident [':' type_ref] '=' expr {pin='CONST'}
+var_decl ::= VAR any_ident [':' type_ref] '=' expr {pin='VAR'}
+mvar_decl ::= MVAR any_ident [':' type_ref] '=' expr {pin='MVAR'}
+const_decl ::= CONST any_ident [':' type_ref] '=' expr {pin='CONST'}
 
 // ===== Expressions =====
 // Order determines precedence: first alternative = lowest precedence.

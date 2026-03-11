@@ -151,6 +151,7 @@ class NostosStructureViewElement(private val element: PsiElement) :
     private fun identText(node: ASTNode): String =
         node.findChildByType(NostosTypes.FUNCTION_NAME)?.text
             ?: node.findChildByType(NostosTypes.IDENTIFIER)?.text
+            ?: node.findChildByType(NostosTypes.TYPE_NAME)?.text
             ?: "?"
 
     private fun tokenText(node: ASTNode, type: IElementType): String =
