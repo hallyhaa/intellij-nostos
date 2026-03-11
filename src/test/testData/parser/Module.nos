@@ -1,0 +1,5 @@
+module Helpers
+    fn double(n: Int): Int = n * 2
+end
+
+const MAX = 100

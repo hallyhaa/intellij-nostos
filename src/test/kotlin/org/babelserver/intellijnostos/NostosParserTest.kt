@@ -56,4 +56,5 @@ class NostosParserTest : BasePlatformTestCase() {
     fun testUnitType() = doParserTest()
     fun testListConsExpr() = doParserTest()
     fun testSessionDebug() = doParserTest()
+    fun testModule() = doParserTest()
 }
