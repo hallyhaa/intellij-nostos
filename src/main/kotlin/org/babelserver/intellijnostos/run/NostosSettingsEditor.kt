@@ -6,7 +6,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.ui.RawCommandLineEditor
 import com.intellij.util.ui.FormBuilder
-import org.babelserver.intellijnostos.settings.NostosSettings
+import org.babelserver.intellijnostos.settings.NostosAppSettings
 import javax.swing.JComponent
 import javax.swing.JPanel
 
@@ -25,7 +25,7 @@ class NostosSettingsEditor(private val project: Project) :
             project,
             FileChooserDescriptorFactory.createSingleFileDescriptor("nos")
         )
-        val effective = NostosSettings.getInstance(project).getEffectiveNostosPath()
+        val effective = NostosAppSettings.getInstance().getEffectiveNostosPath()
         nostosExecutableField.addBrowseFolderListener(
             project,
             FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor()
@@ -42,7 +42,7 @@ class NostosSettingsEditor(private val project: Project) :
             .addSeparator()
             .addLabeledComponent("Nostos executable override:", nostosExecutableField)
             .addComponentToRightColumn(
-                javax.swing.JLabel("<html><small>Leave empty to use project setting ($effective)</small></html>")
+                javax.swing.JLabel("<html><small>Leave empty to use global setting ($effective)</small></html>")
             )
             .panel
     }

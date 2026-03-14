@@ -16,7 +16,7 @@ class NostosSettingsConfigurable(private val project: Project) :
     private lateinit var detectedLabel: Cell<JLabel>
 
     override fun createPanel(): DialogPanel {
-        val settings = NostosSettings.getInstance(project)
+        val settings = NostosAppSettings.getInstance()
 
         return panel {
             group("Nostos Interpreter") {
@@ -27,11 +27,11 @@ class NostosSettingsConfigurable(private val project: Project) :
                     pathField = textFieldWithBrowseButton(
                         fileChooserDescriptor = FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor()
                     ).columns(COLUMNS_LARGE)
-                        .comment("Leave empty to use nostos from PATH")
+                        .comment("Leave empty to auto-detect from PATH")
                 }
                 row {
-                    button("Auto-detect") {
-                        val detected = NostosSettings.detectNostos()
+                    button("Auto-Detect") {
+                        val detected = NostosAppSettings.detectNostos()
                         if (detected != null) {
                             pathField.component.text = detected
                             updateVersionLabel(detected)
@@ -56,7 +56,7 @@ class NostosSettingsConfigurable(private val project: Project) :
     }
 
     private fun updateVersionLabel(path: String) {
-        val version = NostosSettings.getVersion(path)
+        val version = NostosAppSettings.getVersion(path)
         versionLabel.component.text = if (version != null) "Version: $version" else ""
     }
 

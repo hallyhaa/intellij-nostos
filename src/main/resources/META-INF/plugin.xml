@@ -61,13 +61,12 @@
         <lang.formatter
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosFormattingModelBuilder"/>
+        <!--suppress PluginXmlI18n -->
         <projectConfigurable
             parentId="language"
             instance="org.babelserver.intellijnostos.settings.NostosSettingsConfigurable"
             id="nostos.settings"
             displayName="Nostos"/>
-        <projectService
-            serviceImplementation="org.babelserver.intellijnostos.settings.NostosSettings"/>
         <configurationType
             implementation="org.babelserver.intellijnostos.run.NostosConfigurationType"/>
         <runConfigurationProducer
@@ -75,5 +74,8 @@
         <runLineMarkerContributor
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.run.NostosRunLineMarkerContributor"/>
+        <externalAnnotator
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosExternalAnnotator"/>
     </extensions>
 </idea-plugin>

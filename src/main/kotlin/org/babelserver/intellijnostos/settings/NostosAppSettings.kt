@@ -1,16 +1,16 @@
 package org.babelserver.intellijnostos.settings
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.*
-import com.intellij.openapi.project.Project
 import com.intellij.util.xmlb.XmlSerializerUtil
 import java.io.File
 
-@Service(Service.Level.PROJECT)
+@Service(Service.Level.APP)
 @State(
-    name = "NostosSettings",
+    name = "NostosAppSettings",
     storages = [Storage("nostos.xml")]
 )
-class NostosSettings : PersistentStateComponent<NostosSettings.State> {
+class NostosAppSettings : PersistentStateComponent<NostosAppSettings.State> {
 
     class State {
         var nostosPath: String = ""
@@ -31,8 +31,8 @@ class NostosSettings : PersistentStateComponent<NostosSettings.State> {
     }
 
     companion object {
-        fun getInstance(project: Project): NostosSettings =
-            project.getService(NostosSettings::class.java)
+        fun getInstance(): NostosAppSettings =
+            ApplicationManager.getApplication().getService(NostosAppSettings::class.java)
 
         /** Scans well-known locations for the nostos binary. */
         fun detectNostos(): String? {

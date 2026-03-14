@@ -8,7 +8,7 @@ import com.intellij.execution.process.ProcessHandlerFactory
 import com.intellij.execution.process.ProcessTerminatedListener
 import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.util.execution.ParametersListUtil
-import org.babelserver.intellijnostos.settings.NostosSettings
+import org.babelserver.intellijnostos.settings.NostosAppSettings
 import java.io.File
 
 class NostosRunProfileState(
@@ -18,10 +18,10 @@ class NostosRunProfileState(
 
     override fun startProcess(): ProcessHandler {
         val nostos = config.nostosExecutable.ifBlank {
-            NostosSettings.getInstance(config.project).getEffectiveNostosPath()
+            NostosAppSettings.getInstance().getEffectiveNostosPath()
         }
 
-        if (!File(nostos).canExecute() && NostosSettings.detectNostos() == null) {
+        if (!File(nostos).canExecute() && NostosAppSettings.detectNostos() == null) {
             throw ExecutionException(
                 "Nostos interpreter not found. Searched /usr/bin, /usr/local/bin, and PATH.\n" +
                 "Configure the interpreter path in Settings → Languages & Frameworks → Nostos."
