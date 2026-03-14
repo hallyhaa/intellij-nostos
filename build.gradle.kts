@@ -1,10 +1,13 @@
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "2.3.10" // https://plugins.gradle.org/plugin/org.jetbrains.kotlin.jvm
-    id("org.jetbrains.intellij.platform") version "2.12.0" // https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html#usage
-    id("org.jetbrains.intellij.platform.grammarkit") version "2.12.0"
-    id("org.jetbrains.kotlinx.kover") version "0.9.1" // https://github.com/Kotlin/kotlinx-kover
-    id("org.babelserver.gradle.test-logger") version "2.0.0"
+
+    // https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html#usage
+    id("org.jetbrains.intellij.platform") version "2.13.1" // https://plugins.gradle.org/plugin/org.jetbrains.intellij.platform
+    id("org.jetbrains.intellij.platform.grammarkit") version "2.13.1" // https://plugins.gradle.org/plugin/org.jetbrains.intellij.platform.grammarkit
+
+    id("org.jetbrains.kotlinx.kover") version "0.9.7" // https://kotlin.github.io/kotlinx-kover/gradle-plugin/
+    id("org.babelserver.gradle.test-logger") version "2.0.0" // https://plugins.gradle.org/plugin/org.babelserver.gradle.test-logger
 }
 
 group = providers.gradleProperty("pluginGroup").get()
