@@ -41,6 +41,7 @@ class NostosSettings : PersistentStateComponent<NostosSettings.State> {
                 findInPath()?.let { add(it) }
 
                 // Common install locations
+                add("/usr/bin/nostos")                 // Linux system package
                 add("/usr/local/bin/nostos")           // macOS Intel, Linux manual install
                 add("/opt/homebrew/bin/nostos")         // macOS Apple Silicon (Homebrew)
                 add("/home/linuxbrew/.linuxbrew/bin/nostos") // Linux Homebrew

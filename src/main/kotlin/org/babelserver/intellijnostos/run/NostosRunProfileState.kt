@@ -1,5 +1,6 @@
 package org.babelserver.intellijnostos.run
 
+import com.intellij.execution.ExecutionException
 import com.intellij.execution.configurations.CommandLineState
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.ProcessHandler
@@ -18,6 +19,13 @@ class NostosRunProfileState(
     override fun startProcess(): ProcessHandler {
         val nostos = config.nostosExecutable.ifBlank {
             NostosSettings.getInstance(config.project).getEffectiveNostosPath()
+        }
+
+        if (!File(nostos).canExecute() && NostosSettings.detectNostos() == null) {
+            throw ExecutionException(
+                "Nostos interpreter not found. Searched /usr/bin, /usr/local/bin, and PATH.\n" +
+                "Configure the interpreter path in Settings → Languages & Frameworks → Nostos."
+            )
         }
 
         // If the script is main.nos and has sibling .nos files, run the directory
