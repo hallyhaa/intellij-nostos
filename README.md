@@ -31,8 +31,9 @@ Search for "Nostos" in **Settings → Plugins → Marketplace**.
 
 `.nos` files are automatically recognized as Nostos source files.
 
-## Compatibility
+## Requirements
 
+- **Nostos 0.2.18 or later** — the plugin uses `nostos-lsp` for live diagnostics, which ships with the Nostos distribution
 - IntelliJ IDEA 2024.3 and later (Community and Ultimate)
 - Other JetBrains IDEs based on the IntelliJ Platform (CLion, PyCharm, etc.)
 

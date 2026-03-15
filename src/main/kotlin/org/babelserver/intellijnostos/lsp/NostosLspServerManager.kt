@@ -5,6 +5,8 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.EditorFactory
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -40,6 +42,9 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     fun startIfNeeded() {
         if (initialized) return
         val lspPath = findLspExecutable() ?: return
+
+        if (!checkMinimumVersion()) return
+
         log.info("Starting nostos-lsp: $lspPath")
 
         try {
@@ -179,6 +184,42 @@ class NostosLspServerManager(private val project: Project) : Disposable {
         stopServer()
     }
 
+    private fun checkMinimumVersion(): Boolean {
+        val versionStr = NostosAppSettings.getVersion(
+            NostosAppSettings.getInstance().getEffectiveNostosPath()
+        ) ?: return true // Can't determine version — proceed optimistically
+
+        val version = parseVersion(versionStr)
+        if (version != null && compareVersions(version, MIN_VERSION) < 0) {
+            NotificationGroupManager.getInstance()
+                .getNotificationGroup("Nostos")
+                .createNotification(
+                    "Nostos $versionStr is too old",
+                    "The Nostos IntelliJ plugin requires version $MIN_VERSION_STR or later for LSP diagnostics.",
+                    NotificationType.WARNING
+                )
+                .notify(project)
+            return false
+        }
+        return true
+    }
+
+    private fun compareVersions(a: List<Int>, b: List<Int>): Int {
+        for (i in 0 until maxOf(a.size, b.size)) {
+            val ai = a.getOrElse(i) { 0 }
+            val bi = b.getOrElse(i) { 0 }
+            if (ai != bi) return ai.compareTo(bi)
+        }
+        return 0
+    }
+
+    private fun parseVersion(versionOutput: String): List<Int>? {
+        // "nostos 0.2.17" or "0.2.17"
+        val numPart = versionOutput.trim().split(" ").last()
+        val parts = numPart.split(".").mapNotNull { it.toIntOrNull() }
+        return if (parts.size == 3) parts else null
+    }
+
     private fun findLspExecutable(): String? {
         val nostosPath = NostosAppSettings.getInstance().getEffectiveNostosPath()
         val nostosFile = File(nostosPath)
@@ -194,6 +235,9 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     }
 
     companion object {
+        private val MIN_VERSION = listOf(0, 2, 18)
+        private const val MIN_VERSION_STR = "0.2.18"
+
         fun getInstance(project: Project): NostosLspServerManager =
             project.getService(NostosLspServerManager::class.java)
     }
