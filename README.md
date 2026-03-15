@@ -5,15 +5,17 @@ lightweight concurrency, pattern matching, and non-blocking I/O.
 
 ## Features
 
+- **Live diagnostics** — compile errors shown in the editor via `nostos-lsp`
 - **Syntax highlighting** — keywords, strings, numbers, comments, operators, types
 - **Code completion** — keyword completion with context-aware suffixes
 - **Go to Definition** — navigate to declarations of values, functions, and types
 - **Find Usages** — find all references to a symbol across files
 - **Code formatting** — automatic indentation and spacing (Ctrl+Alt+L)
+- **Run configurations** — run Nostos programs directly from the IDE
 - **Structure view** — outline of declarations, modules, types, and traits
 - **Code folding** — collapse blocks, functions, and modules
 - **Brace matching** — highlight matching braces, brackets, and parentheses
-- **Commenting** — toggle line comments (`//`) and block comments (`/* */`)
+- **Commenting** — toggle line comments (`#`) and block comments (`#* *#`)
 
 ## Installation
 
