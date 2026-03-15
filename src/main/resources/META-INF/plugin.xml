@@ -77,5 +77,11 @@
         <externalAnnotator
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosExternalAnnotator"/>
+        <!--suppress PluginXmlI18n -->
+        <notificationGroup id="Nostos" displayType="BALLOON"/>
+        <postStartupActivity
+            implementation="org.babelserver.intellijnostos.lsp.NostosLspStartupActivity"/>
+        <projectViewNodeDecorator
+            implementation="org.babelserver.intellijnostos.lsp.NostosFileStatusDecorator"/>
     </extensions>
 </idea-plugin>

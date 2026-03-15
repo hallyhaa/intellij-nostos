@@ -7,8 +7,13 @@ import com.intellij.execution.process.ProcessHandler
 import com.intellij.execution.process.ProcessHandlerFactory
 import com.intellij.execution.process.ProcessTerminatedListener
 import com.intellij.execution.runners.ExecutionEnvironment
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
+import com.intellij.notification.NotificationAction
+import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.util.execution.ParametersListUtil
 import org.babelserver.intellijnostos.settings.NostosAppSettings
+import org.babelserver.intellijnostos.settings.NostosSettingsConfigurable
 import java.io.File
 
 class NostosRunProfileState(
@@ -22,10 +27,20 @@ class NostosRunProfileState(
         }
 
         if (!File(nostos).canExecute() && NostosAppSettings.detectNostos() == null) {
-            throw ExecutionException(
-                "Nostos interpreter not found. Searched /usr/bin, /usr/local/bin, and PATH.\n" +
-                "Configure the interpreter path in Settings → Languages & Frameworks → Nostos."
-            )
+            NotificationGroupManager.getInstance()
+                .getNotificationGroup("Nostos")
+                .createNotification(
+                    "Nostos interpreter not found",
+                    "Searched /usr/bin, /usr/local/bin, and PATH.",
+                    NotificationType.ERROR
+                )
+                .addAction(NotificationAction.createSimple("Configure\u2026") {
+                    ShowSettingsUtil.getInstance().showSettingsDialog(
+                        config.project, NostosSettingsConfigurable::class.java
+                    )
+                })
+                .notify(config.project)
+            throw ExecutionException("Nostos interpreter not found")
         }
 
         // If the script is main.nos and has sibling .nos files, run the directory
