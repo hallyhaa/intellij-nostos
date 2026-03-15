@@ -5,6 +5,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.util.Version
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.editor.event.DocumentEvent
@@ -189,13 +190,13 @@ class NostosLspServerManager(private val project: Project) : Disposable {
             NostosAppSettings.getInstance().getEffectiveNostosPath()
         ) ?: return true // Can't determine version — proceed optimistically
 
-        val version = parseVersion(versionStr)
-        if (version != null && compareVersions(version, MIN_VERSION) < 0) {
+        val version = parseNostosVersion(versionStr)
+        if (version != null && version < MIN_VERSION) {
             NotificationGroupManager.getInstance()
                 .getNotificationGroup("Nostos")
                 .createNotification(
                     "Nostos $versionStr is too old",
-                    "The Nostos IntelliJ plugin requires version $MIN_VERSION_STR or later for LSP diagnostics.",
+                    "The Nostos IntelliJ plugin requires version $MIN_VERSION or later for LSP diagnostics.",
                     NotificationType.WARNING
                 )
                 .notify(project)
@@ -204,20 +205,17 @@ class NostosLspServerManager(private val project: Project) : Disposable {
         return true
     }
 
-    private fun compareVersions(a: List<Int>, b: List<Int>): Int {
-        for (i in 0 until maxOf(a.size, b.size)) {
-            val ai = a.getOrElse(i) { 0 }
-            val bi = b.getOrElse(i) { 0 }
-            if (ai != bi) return ai.compareTo(bi)
-        }
-        return 0
-    }
+    companion object {
+        internal val MIN_VERSION = Version(0, 2, 18)
 
-    private fun parseVersion(versionOutput: String): List<Int>? {
-        // "nostos 0.2.17" or "0.2.17"
-        val numPart = versionOutput.trim().split(" ").last()
-        val parts = numPart.split(".").mapNotNull { it.toIntOrNull() }
-        return if (parts.size == 3) parts else null
+        /** Parse "nostos 0.2.17" or "0.2.17" into a Version. */
+        internal fun parseNostosVersion(versionOutput: String): Version? {
+            val numPart = versionOutput.trim().split(" ").last()
+            return Version.parseVersion(numPart)
+        }
+
+        fun getInstance(project: Project): NostosLspServerManager =
+            project.getService(NostosLspServerManager::class.java)
     }
 
     private fun findLspExecutable(): String? {
@@ -234,13 +232,6 @@ class NostosLspServerManager(private val project: Project) : Disposable {
         return candidates.firstOrNull { File(it).canExecute() }
     }
 
-    companion object {
-        private val MIN_VERSION = listOf(0, 2, 18)
-        private const val MIN_VERSION_STR = "0.2.18"
-
-        fun getInstance(project: Project): NostosLspServerManager =
-            project.getService(NostosLspServerManager::class.java)
-    }
 }
 
 private fun VirtualFile.toUri(): String = URI("file", "", this.path, null).toString()
