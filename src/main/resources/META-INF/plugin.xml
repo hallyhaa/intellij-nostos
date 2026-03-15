@@ -10,6 +10,12 @@
     ]]></description>
 
     <change-notes><![CDATA[
+    <b>0.2.0</b>
+    <ul>
+        <li>Live diagnostics via nostos-lsp integration</li>
+        <li>File status indicators in project tree for files with compile errors</li>
+        <li>Run configurations for executing Nostos programs</li>
+    </ul>
     <b>0.1.0</b>
     <ul>
         <li>Initial release</li>
