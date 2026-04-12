@@ -1,13 +1,13 @@
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "2.3.10" // https://plugins.gradle.org/plugin/org.jetbrains.kotlin.jvm
+    id("org.jetbrains.kotlin.jvm") version "2.3.20" // https://plugins.gradle.org/plugin/org.jetbrains.kotlin.jvm
 
     // https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html#usage
-    id("org.jetbrains.intellij.platform") version "2.13.1" // https://plugins.gradle.org/plugin/org.jetbrains.intellij.platform
-    id("org.jetbrains.intellij.platform.grammarkit") version "2.13.1" // https://plugins.gradle.org/plugin/org.jetbrains.intellij.platform.grammarkit
+    id("org.jetbrains.intellij.platform") version "2.14.0" // https://plugins.gradle.org/plugin/org.jetbrains.intellij.platform
+    id("org.jetbrains.intellij.platform.grammarkit") version "2.14.0" // https://plugins.gradle.org/plugin/org.jetbrains.intellij.platform.grammarkit
 
-    id("org.jetbrains.kotlinx.kover") version "0.9.7" // https://kotlin.github.io/kotlinx-kover/gradle-plugin/
-    id("org.babelserver.gradle.test-logger") version "2.0.0" // https://plugins.gradle.org/plugin/org.babelserver.gradle.test-logger
+    id("org.jetbrains.kotlinx.kover") version "0.9.8" // https://central.sonatype.com/artifact/org.jetbrains.kotlinx/kover-gradle-plugin/versions
+    id("org.babelserver.gradle.test-logger") version "2.1.0" // https://plugins.gradle.org/plugin/org.babelserver.gradle.test-logger
 }
 
 group = providers.gradleProperty("pluginGroup").get()
