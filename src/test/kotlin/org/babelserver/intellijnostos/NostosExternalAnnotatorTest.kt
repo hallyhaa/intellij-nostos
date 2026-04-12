@@ -51,53 +51,65 @@ class NostosExternalAnnotatorTest : BasePlatformTestCase() {
         NostosDiagnosticsCache.cache.remove(uri)
     }
 
-    // ==================== apply with diagnostics ====================
+    // ==================== doAnnotate with diagnostics ====================
 
     fun testApplyErrorDiagnostic() {
-        val file = myFixture.configureByText("test.nos", "x = nonexistent + 1")
+        val file = myFixture.configureByText("test.nos", "x = 1 + 1")
+        val info = annotator.collectInformation(file, myFixture.editor, false)
+        assertNotNull(info)
 
-        val uri = "file://${file.virtualFile.path}"
         val diag = Diagnostic(
-            Range(Position(0, 4), Position(0, 15)),
-            "unknown variable `nonexistent`"
+            Range(Position(0, 4), Position(0, 9)),
+            "some error"
         ).apply { severity = DiagnosticSeverity.Error }
 
-        NostosDiagnosticsCache.cache[uri] = listOf(diag)
+        NostosDiagnosticsCache.cache[info!!.fileUri] = listOf(diag)
 
-        myFixture.doHighlighting()
+        val result = annotator.doAnnotate(info)
+        assertEquals(1, result.size)
+        assertEquals("some error", result[0].message)
+        assertEquals(DiagnosticSeverity.Error, result[0].severity)
 
-        NostosDiagnosticsCache.cache.remove(uri)
+        NostosDiagnosticsCache.cache.remove(info.fileUri)
     }
 
     fun testApplyWarningDiagnostic() {
         val file = myFixture.configureByText("test.nos", "x = 1 / 0")
+        val info = annotator.collectInformation(file, myFixture.editor, false)
+        assertNotNull(info)
 
-        val uri = "file://${file.virtualFile.path}"
         val diag = Diagnostic(
             Range(Position(0, 4), Position(0, 9)),
             "division by zero"
         ).apply { severity = DiagnosticSeverity.Warning }
 
-        NostosDiagnosticsCache.cache[uri] = listOf(diag)
+        NostosDiagnosticsCache.cache[info!!.fileUri] = listOf(diag)
 
-        myFixture.doHighlighting()
+        val result = annotator.doAnnotate(info)
+        assertEquals(1, result.size)
+        assertEquals("division by zero", result[0].message)
+        assertEquals(DiagnosticSeverity.Warning, result[0].severity)
 
-        NostosDiagnosticsCache.cache.remove(uri)
+        NostosDiagnosticsCache.cache.remove(info.fileUri)
     }
 
     fun testApplyMultipleDiagnostics() {
-        val file = myFixture.configureByText("test.nos", "x = a + b")
+        val file = myFixture.configureByText("test.nos", "x = 1 + 2")
+        val info = annotator.collectInformation(file, myFixture.editor, false)
+        assertNotNull(info)
 
-        val uri = "file://${file.virtualFile.path}"
         val diags = listOf(
-            Diagnostic(Range(Position(0, 4), Position(0, 5)), "unknown `a`").apply { severity = DiagnosticSeverity.Error },
-            Diagnostic(Range(Position(0, 8), Position(0, 9)), "unknown `b`").apply { severity = DiagnosticSeverity.Error },
+            Diagnostic(Range(Position(0, 4), Position(0, 5)), "error 1").apply { severity = DiagnosticSeverity.Error },
+            Diagnostic(Range(Position(0, 8), Position(0, 9)), "error 2").apply { severity = DiagnosticSeverity.Error },
         )
 
-        NostosDiagnosticsCache.cache[uri] = diags
+        NostosDiagnosticsCache.cache[info!!.fileUri] = diags
 
-        myFixture.doHighlighting()
+        val result = annotator.doAnnotate(info)
+        assertEquals(2, result.size)
+        assertEquals("error 1", result[0].message)
+        assertEquals("error 2", result[1].message)
 
-        NostosDiagnosticsCache.cache.remove(uri)
+        NostosDiagnosticsCache.cache.remove(info.fileUri)
     }
 }
