@@ -1,9 +1,11 @@
 package org.babelserver.intellijnostos
 
+import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.util.PlatformIcons
 import org.babelserver.intellijnostos.psi.*
 
 /**
@@ -18,7 +20,61 @@ class NostosTypeReference(element: PsiElement, private val nameText: String) :
         return resolveInFile(element.containingFile) ?: resolveAcrossFiles()
     }
 
-    override fun getVariants(): Array<Any> = emptyArray()
+    override fun getVariants(): Array<Any> {
+        val result = mutableListOf<LookupElementBuilder>()
+        val seen = mutableSetOf<String>()
+
+        fun add(named: NostosNamedElement, typeText: String, icon: javax.swing.Icon?) {
+            val name = named.name ?: return
+            if (!seen.add(name)) return
+            result.add(LookupElementBuilder.create(named, name).withIcon(icon).withTypeText(typeText))
+        }
+
+        collectTypeVariants(element.containingFile, ::add)
+
+        val project = element.project
+        val scope = GlobalSearchScope.projectScope(project)
+        val thisFile = element.containingFile.virtualFile
+        val psiManager = PsiManager.getInstance(project)
+        for (vFile in FileTypeIndex.getFiles(NostosFileType, scope)) {
+            if (vFile == thisFile) continue
+            val psiFile = psiManager.findFile(vFile) ?: continue
+            collectTypeVariants(psiFile, ::add)
+        }
+
+        return result.toTypedArray()
+    }
+
+    private fun collectTypeVariants(
+        file: PsiFile,
+        add: (NostosNamedElement, String, javax.swing.Icon?) -> Unit,
+    ) {
+        for (child in file.children) {
+            collectTypeDecl(child, add)
+            if (child is NostosModuleDecl) {
+                add(child as NostosNamedElement, "module", PlatformIcons.PACKAGE_ICON)
+                for (moduleChild in child.children) {
+                    collectTypeDecl(moduleChild, add)
+                }
+            }
+        }
+    }
+
+    private fun collectTypeDecl(
+        element: PsiElement,
+        add: (NostosNamedElement, String, javax.swing.Icon?) -> Unit,
+    ) {
+        when (element) {
+            is NostosTypeDecl -> {
+                add(element as NostosNamedElement, "type", PlatformIcons.CLASS_ICON)
+                element.typeBody?.typeVariantList?.forEach { variant ->
+                    add(variant as NostosNamedElement, "variant", PlatformIcons.ENUM_ICON)
+                }
+            }
+            is NostosTraitDecl -> add(element as NostosNamedElement, "trait", PlatformIcons.INTERFACE_ICON)
+            is NostosReactiveDecl -> add(element as NostosNamedElement, "reactive", PlatformIcons.CLASS_ICON)
+        }
+    }
 
     override fun handleElementRename(newElementName: String): PsiElement {
         val typeNameNode = element.node.findChildByType(NostosTypes.TYPE_NAME) ?: return element
