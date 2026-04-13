@@ -85,7 +85,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
                             requests = SemanticTokensClientCapabilitiesRequests().apply {
                                 full = org.eclipse.lsp4j.jsonrpc.messages.Either.forLeft(true)
                             }
-                            tokenTypes = listOf("namespace", "type", "function", "variable", "parameter", "property", "enumMember", "keyword", "string", "number", "operator", "comment")
+                            tokenTypes = listOf("namespace", "type", "function", "variable", "parameter", "property", "enumMember", "keyword", "string", "number", "operator", "comment", "method", "struct", "enum", "interface", "typeParameter")
                             tokenModifiers = listOf("declaration", "definition")
                             formats = listOf(TokenFormat.Relative)
                         }

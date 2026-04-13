@@ -80,19 +80,31 @@ class NostosSemanticHighlighter :
     }
 
     companion object {
+        private const val MOD_DECLARATION = 1 // bit 0
+
         // LSP token type indices (matching the legend from the server)
         // 0=namespace, 1=type, 2=function, 3=variable, 4=parameter,
-        // 5=property, 6=enumMember, 7=keyword, 8=string, 9=number, 10=operator, 11=comment
-        private fun lspTokenTypeToAttributes(tokenType: Int, @Suppress("UNUSED_PARAMETER") modifiers: Int): TextAttributesKey? = when (tokenType) {
-            0 -> NostosSyntaxHighlighter.SEMANTIC_NAMESPACE
-            1 -> NostosSyntaxHighlighter.SEMANTIC_TYPE
-            2 -> NostosSyntaxHighlighter.SEMANTIC_FUNCTION
-            // 3=variable, 4=parameter — skipped: LOCAL_VARIABLE and PARAMETER are undefined
-            // in Darcula (invisible), and would overwrite better lexer colors
-            5 -> NostosSyntaxHighlighter.SEMANTIC_PROPERTY
-            6 -> NostosSyntaxHighlighter.SEMANTIC_ENUM_MEMBER
-            // 7=keyword, 8=string, 9=number, 10=operator, 11=comment — already handled by syntax highlighter
-            else -> null
+        // 5=property, 6=enumMember, 7=keyword, 8=string, 9=number, 10=operator, 11=comment,
+        // 12=method, 13=struct, 14=enum, 15=interface, 16=typeParameter
+        private fun lspTokenTypeToAttributes(tokenType: Int, modifiers: Int): TextAttributesKey? {
+            val isDeclaration = modifiers and MOD_DECLARATION != 0
+            return when (tokenType) {
+                0 -> NostosSyntaxHighlighter.SEMANTIC_NAMESPACE
+                1 -> NostosSyntaxHighlighter.SEMANTIC_TYPE
+                2 -> if (isDeclaration) NostosSyntaxHighlighter.SEMANTIC_FUNCTION_DECL
+                     else NostosSyntaxHighlighter.SEMANTIC_FUNCTION_CALL
+                // 3=variable — skipped: LOCAL_VARIABLE is undefined in Darcula and would overwrite lexer colors
+                4 -> NostosSyntaxHighlighter.SEMANTIC_PARAMETER
+                5 -> NostosSyntaxHighlighter.SEMANTIC_PROPERTY
+                6 -> NostosSyntaxHighlighter.SEMANTIC_ENUM_MEMBER
+                // 7=keyword, 8=string, 9=number, 10=operator, 11=comment — already handled by syntax highlighter
+                12 -> NostosSyntaxHighlighter.SEMANTIC_METHOD
+                13 -> NostosSyntaxHighlighter.SEMANTIC_STRUCT
+                14 -> NostosSyntaxHighlighter.SEMANTIC_ENUM
+                15 -> NostosSyntaxHighlighter.SEMANTIC_INTERFACE
+                16 -> NostosSyntaxHighlighter.SEMANTIC_TYPE_PARAMETER
+                else -> null
+            }
         }
     }
 }

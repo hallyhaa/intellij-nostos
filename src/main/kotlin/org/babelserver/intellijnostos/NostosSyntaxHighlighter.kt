@@ -85,10 +85,16 @@ class NostosSyntaxHighlighter : SyntaxHighlighterBase() {
         val SEMANTIC_VARIABLE = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_VARIABLE", DefaultLanguageHighlighterColors.LOCAL_VARIABLE)
         val SEMANTIC_PARAMETER = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_PARAMETER", DefaultLanguageHighlighterColors.PARAMETER)
         val SEMANTIC_PROPERTY = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_PROPERTY", DefaultLanguageHighlighterColors.INSTANCE_FIELD)
-        val SEMANTIC_FUNCTION = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_FUNCTION", DefaultLanguageHighlighterColors.FUNCTION_DECLARATION)
+        val SEMANTIC_FUNCTION_DECL = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_FUNCTION_DECL", DefaultLanguageHighlighterColors.FUNCTION_DECLARATION)
+        val SEMANTIC_FUNCTION_CALL = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_FUNCTION_CALL", DefaultLanguageHighlighterColors.FUNCTION_DECLARATION)
         val SEMANTIC_TYPE = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_TYPE", DefaultLanguageHighlighterColors.CLASS_NAME)
         val SEMANTIC_NAMESPACE = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_NAMESPACE", DefaultLanguageHighlighterColors.CLASS_NAME)
         val SEMANTIC_ENUM_MEMBER = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_ENUM_MEMBER", DefaultLanguageHighlighterColors.STATIC_FIELD)
+        val SEMANTIC_METHOD = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_METHOD", DefaultLanguageHighlighterColors.FUNCTION_DECLARATION)
+        val SEMANTIC_STRUCT = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_STRUCT", DefaultLanguageHighlighterColors.CLASS_NAME)
+        val SEMANTIC_ENUM = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_ENUM", DefaultLanguageHighlighterColors.CLASS_NAME)
+        val SEMANTIC_INTERFACE = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_INTERFACE", DefaultLanguageHighlighterColors.INTERFACE_NAME)
+        val SEMANTIC_TYPE_PARAMETER = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_TYPE_PARAMETER", DefaultLanguageHighlighterColors.CLASS_NAME)
     }
 }
 
