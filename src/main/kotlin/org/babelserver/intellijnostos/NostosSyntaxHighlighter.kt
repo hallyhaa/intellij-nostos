@@ -80,6 +80,15 @@ class NostosSyntaxHighlighter : SyntaxHighlighterBase() {
         private val BRACE_KEYS = arrayOf(TextAttributesKey.createTextAttributesKey("NOSTOS_BRACES", DefaultLanguageHighlighterColors.BRACES))
         private val INTERPOLATION_KEYS = arrayOf(TextAttributesKey.createTextAttributesKey("NOSTOS_INTERPOLATION", DefaultLanguageHighlighterColors.VALID_STRING_ESCAPE))
         private val EMPTY_KEYS = emptyArray<TextAttributesKey>()
+
+        // Semantic token attributes (used by NostosSemanticHighlighter)
+        val SEMANTIC_VARIABLE = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_VARIABLE", DefaultLanguageHighlighterColors.LOCAL_VARIABLE)
+        val SEMANTIC_PARAMETER = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_PARAMETER", DefaultLanguageHighlighterColors.PARAMETER)
+        val SEMANTIC_PROPERTY = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_PROPERTY", DefaultLanguageHighlighterColors.INSTANCE_FIELD)
+        val SEMANTIC_FUNCTION = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_FUNCTION", DefaultLanguageHighlighterColors.FUNCTION_DECLARATION)
+        val SEMANTIC_TYPE = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_TYPE", DefaultLanguageHighlighterColors.CLASS_NAME)
+        val SEMANTIC_NAMESPACE = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_NAMESPACE", DefaultLanguageHighlighterColors.CLASS_NAME)
+        val SEMANTIC_ENUM_MEMBER = TextAttributesKey.createTextAttributesKey("NOSTOS_SEMANTIC_ENUM_MEMBER", DefaultLanguageHighlighterColors.STATIC_FIELD)
     }
 }
 

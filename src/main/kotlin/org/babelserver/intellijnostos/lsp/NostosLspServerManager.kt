@@ -81,6 +81,14 @@ class NostosLspServerManager(private val project: Project) : Disposable {
                         hover = HoverCapabilities()
                         definition = DefinitionCapabilities()
                         references = ReferencesCapabilities()
+                        semanticTokens = SemanticTokensCapabilities().apply {
+                            requests = SemanticTokensClientCapabilitiesRequests().apply {
+                                full = org.eclipse.lsp4j.jsonrpc.messages.Either.forLeft(true)
+                            }
+                            tokenTypes = listOf("namespace", "type", "function", "variable", "parameter", "property", "enumMember", "keyword", "string", "number", "operator", "comment")
+                            tokenModifiers = listOf("declaration", "definition")
+                            formats = listOf(TokenFormat.Relative)
+                        }
                     }
                 }
             }

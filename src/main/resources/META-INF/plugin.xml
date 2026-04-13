@@ -64,6 +64,10 @@
         <completion.contributor
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosCompletionContributor"/>
+        <completion.contributor
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosLspCompletionContributor"
+            order="last"/>
         <lang.formatter
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosFormattingModelBuilder"/>
@@ -83,6 +87,9 @@
         <externalAnnotator
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosExternalAnnotator"/>
+        <externalAnnotator
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosSemanticHighlighter"/>
         <!--suppress PluginXmlI18n -->
         <notificationGroup id="Nostos" displayType="BALLOON"/>
         <postStartupActivity
