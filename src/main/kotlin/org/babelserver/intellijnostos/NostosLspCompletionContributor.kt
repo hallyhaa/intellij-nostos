@@ -88,10 +88,7 @@ class NostosLspCompletionContributor : CompletionContributor() {
                 if (items.isEmpty()) return
 
                 val lspResult = result.withPrefixMatcher(result.prefixMatcher.cloneWithPrefix(prefix))
-                val sorted = items
-                    .filter { !it.label.startsWith(":") }  // skip type annotations
-                    .sortedWith(compareByDescending<CompletionItem> { lspKindToPriority(it.kind) }
-                        .thenBy { it.sortText ?: it.label })
+                val sorted = processCompletionItems(items)
                 for ((index, item) in sorted.withIndex()) {
                     val insertText = plainInsertText(item)
                     val lookupString = item.filterText ?: item.label
@@ -110,21 +107,29 @@ class NostosLspCompletionContributor : CompletionContributor() {
             }
         }
 
-        private fun plainInsertText(item: CompletionItem): String {
+    }
+
+    companion object {
+        internal fun processCompletionItems(items: List<CompletionItem>): List<CompletionItem> =
+            items
+                .filter { !it.label.startsWith(":") }
+                .sortedWith(compareByDescending<CompletionItem> { lspKindToPriority(it.kind) }
+                    .thenBy { it.sortText ?: it.label })
+
+        internal fun plainInsertText(item: CompletionItem): String {
             val raw = item.insertText ?: item.label
             if (item.insertTextFormat != InsertTextFormat.Snippet) return raw
-            // Strip snippet placeholders: ${1:text} → text, $1 → empty
             return raw.replace(Regex("\\$\\{\\d+:([^}]*)}"), "$1").replace(Regex("\\$\\d+"), "")
         }
 
-        private fun lspKindToPriority(kind: CompletionItemKind?): Double = when (kind) {
+        internal fun lspKindToPriority(kind: CompletionItemKind?): Double = when (kind) {
             CompletionItemKind.Field, CompletionItemKind.Property -> 20.0
             CompletionItemKind.Method -> 10.0
             CompletionItemKind.Function -> 5.0
             else -> 0.0
         }
 
-        private fun lspKindToIcon(kind: CompletionItemKind?): Icon? = when (kind) {
+        internal fun lspKindToIcon(kind: CompletionItemKind?): Icon? = when (kind) {
             CompletionItemKind.Function, CompletionItemKind.Method -> PlatformIcons.FUNCTION_ICON
             CompletionItemKind.Variable -> PlatformIcons.VARIABLE_ICON
             CompletionItemKind.Field, CompletionItemKind.Property -> PlatformIcons.FIELD_ICON
