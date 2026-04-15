@@ -24,6 +24,12 @@ class NostosCompletionContributor : CompletionContributor() {
             context: ProcessingContext,
             result: CompletionResultSet
         ) {
+            val offset = parameters.offset
+            val text = parameters.originalFile.viewProvider.document?.charsSequence ?: return
+            var pos = offset - 1
+            while (pos >= 0 && (text[pos].isLetterOrDigit() || text[pos] == '_')) pos--
+            if (pos >= 0 && text[pos] == '.') return
+
             for (kw in keywords) {
                 val handler = kw.onInsert?.let { action ->
                     InsertHandler<com.intellij.codeInsight.lookup.LookupElement> { ctx, _ -> action(ctx) }
