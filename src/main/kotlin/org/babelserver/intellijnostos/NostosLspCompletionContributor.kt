@@ -93,7 +93,10 @@ class NostosLspCompletionContributor : CompletionContributor() {
                     .sortedWith(compareByDescending<CompletionItem> { lspKindToPriority(it.kind) }
                         .thenBy { it.sortText ?: it.label })
                 for ((index, item) in sorted.withIndex()) {
-                    val element = LookupElementBuilder.create(item.insertText ?: item.label)
+                    val insertText = plainInsertText(item)
+                    val lookupString = item.filterText ?: item.label
+                    val element = LookupElementBuilder.create(insertText)
+                        .withLookupString(lookupString)
                         .withPresentableText(item.label)
                         .withTypeText(item.detail)
                         .withIcon(lspKindToIcon(item.kind))
@@ -105,6 +108,13 @@ class NostosLspCompletionContributor : CompletionContributor() {
             } catch (e: Exception) {
                 log.debug("LSP completion request failed", e)
             }
+        }
+
+        private fun plainInsertText(item: CompletionItem): String {
+            val raw = item.insertText ?: item.label
+            if (item.insertTextFormat != InsertTextFormat.Snippet) return raw
+            // Strip snippet placeholders: ${1:text} → text, $1 → empty
+            return raw.replace(Regex("\\$\\{\\d+:([^}]*)}"), "$1").replace(Regex("\\$\\d+"), "")
         }
 
         private fun lspKindToPriority(kind: CompletionItemKind?): Double = when (kind) {
