@@ -56,11 +56,20 @@ class NostosLspCompletionContributor : CompletionContributor() {
             val document = parameters.originalFile.viewProvider.document ?: return
 
             // Only trigger LSP completion after a dot (member access)
+            // Scan back past any identifier chars the user already typed to find the dot
             val caretOffset = parameters.offset.coerceAtMost(document.textLength)
-            if (caretOffset <= 0 || document.getText(TextRange(caretOffset - 1, caretOffset)) != ".") return
+            val text = document.charsSequence
+            var dotPos = caretOffset - 1
+            while (dotPos >= 0 && (text[dotPos].isLetterOrDigit() || text[dotPos] == '_')) {
+                dotPos--
+            }
+            if (dotPos < 0 || text[dotPos] != '.') return
 
-            val line = document.getLineNumber(caretOffset)
-            val character = caretOffset - document.getLineStartOffset(line)
+            // Send LSP request at position right after dot to get all members
+            val afterDot = dotPos + 1
+            val line = document.getLineNumber(afterDot)
+            val character = afterDot - document.getLineStartOffset(line)
+            val prefix = text.substring(afterDot, caretOffset).toString()
             val uri = URI("file", "", file.path, null).toString()
 
             try {
@@ -78,7 +87,7 @@ class NostosLspCompletionContributor : CompletionContributor() {
 
                 if (items.isEmpty()) return
 
-                val lspResult = result.withPrefixMatcher(result.prefixMatcher.cloneWithPrefix(""))
+                val lspResult = result.withPrefixMatcher(result.prefixMatcher.cloneWithPrefix(prefix))
                 val sorted = items
                     .filter { !it.label.startsWith(":") }  // skip type annotations
                     .sortedWith(compareByDescending<CompletionItem> { lspKindToPriority(it.kind) }
