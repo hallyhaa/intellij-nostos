@@ -69,14 +69,13 @@ class NostosLspCompletionContributor : CompletionContributor() {
             val afterDot = dotPos + 1
             val line = document.getLineNumber(afterDot)
             val character = afterDot - document.getLineStartOffset(line)
-            val prefix = text.substring(afterDot, caretOffset).toString()
+            val prefix = text.substring(afterDot, caretOffset)
             val uri = URI("file", "", file.path, null).toString()
 
             try {
-                @Suppress("UNCHECKED_CAST")
                 val response = server.textDocumentService
                     .completion(CompletionParams(TextDocumentIdentifier(uri), Position(line, character)))
-                    .get(2, TimeUnit.SECONDS) as? Either<List<CompletionItem>, CompletionList>
+                    .get(2, TimeUnit.SECONDS)
 
                 val items: List<CompletionItem> = when {
                     response == null -> emptyList()
