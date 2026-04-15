@@ -1,6 +1,7 @@
 package org.babelserver.intellijnostos
 
 import com.intellij.codeInsight.completion.*
+import com.intellij.codeInsight.completion.PrioritizedLookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProcessCanceledException
@@ -78,19 +79,30 @@ class NostosLspCompletionContributor : CompletionContributor() {
                 if (items.isEmpty()) return
 
                 val lspResult = result.withPrefixMatcher(result.prefixMatcher.cloneWithPrefix(""))
-                for (item in items) {
-                    lspResult.addElement(
-                        LookupElementBuilder.create(item.insertText ?: item.label)
-                            .withPresentableText(item.label)
-                            .withTypeText(item.detail)
-                            .withIcon(lspKindToIcon(item.kind))
-                    )
+                val sorted = items
+                    .filter { !it.label.startsWith(":") }  // skip type annotations
+                    .sortedWith(compareByDescending<CompletionItem> { lspKindToPriority(it.kind) }
+                        .thenBy { it.sortText ?: it.label })
+                for ((index, item) in sorted.withIndex()) {
+                    val element = LookupElementBuilder.create(item.insertText ?: item.label)
+                        .withPresentableText(item.label)
+                        .withTypeText(item.detail)
+                        .withIcon(lspKindToIcon(item.kind))
+                    val priority = (sorted.size - index).toDouble()
+                    lspResult.addElement(PrioritizedLookupElement.withPriority(element, priority))
                 }
             } catch (e: ProcessCanceledException) {
                 throw e
             } catch (e: Exception) {
                 log.debug("LSP completion request failed", e)
             }
+        }
+
+        private fun lspKindToPriority(kind: CompletionItemKind?): Double = when (kind) {
+            CompletionItemKind.Field, CompletionItemKind.Property -> 20.0
+            CompletionItemKind.Method -> 10.0
+            CompletionItemKind.Function -> 5.0
+            else -> 0.0
         }
 
         private fun lspKindToIcon(kind: CompletionItemKind?): Icon? = when (kind) {
