@@ -7,6 +7,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.search.FileTypeIndex
+import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
 import org.babelserver.intellijnostos.NostosDiagnosticsCache
 import org.babelserver.intellijnostos.NostosFileType
@@ -30,12 +31,18 @@ class NostosLspStartupActivity : ProjectActivity {
             }
         }
 
-        // Only warn about a missing nostos/nostos-lsp when the project actually
-        // contains Nostos files — otherwise the plugin stays silent.
-        val hasNostosFiles = smartReadAction(project) {
-            FileTypeIndex.containsFileOfType(NostosFileType, GlobalSearchScope.projectScope(project))
+        // In a single smart-mode read: check whether the project has Nostos
+        // files (gates the missing-toolchain warning) and locate nostos.toml
+        // manifests (used to pick the LSP workspace root).
+        val (hasNostosFiles, lspRoot) = smartReadAction(project) {
+            val scope = GlobalSearchScope.projectScope(project)
+            val hasFiles = FileTypeIndex.containsFileOfType(NostosFileType, scope)
+            val manifests = FilenameIndex
+                .getVirtualFilesByName(NostosProjectRoot.MANIFEST_NAME, scope)
+                .map { it.path }
+            hasFiles to NostosProjectRoot.choose(manifests, project.basePath)
         }
 
-        manager.startIfNeeded(notifyIfMissing = hasNostosFiles)
+        manager.startIfNeeded(notifyIfMissing = hasNostosFiles, lspRoot = lspRoot)
     }
 }

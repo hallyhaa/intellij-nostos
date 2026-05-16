@@ -50,8 +50,10 @@ class NostosLspServerManager(private val project: Project) : Disposable {
      * @param notifyIfMissing when true, a warning notification is shown if nostos
      *   or nostos-lsp cannot be located. Callers pass false for projects without
      *   Nostos files to avoid pestering unrelated projects.
+     * @param lspRoot the workspace root to hand to nostos-lsp (the directory
+     *   containing nostos.toml). Falls back to the project base path when null.
      */
-    fun startIfNeeded(notifyIfMissing: Boolean = true) {
+    fun startIfNeeded(notifyIfMissing: Boolean = true, lspRoot: String? = null) {
         if (initialized) return
         val lspPath = when (val lookup = resolveLspExecutable()) {
             is LspLookup.Found -> lookup.path
@@ -69,11 +71,12 @@ class NostosLspServerManager(private val project: Project) : Disposable {
 
         if (!checkMinimumVersion()) return
 
-        log.info("Starting nostos-lsp: $lspPath")
+        val rootDir = lspRoot ?: project.basePath
+        log.info("Starting nostos-lsp: $lspPath (root: $rootDir)")
 
         try {
             val processBuilder = ProcessBuilder(lspPath)
-                .directory(File(project.basePath ?: "."))
+                .directory(File(rootDir ?: "."))
                 .redirectErrorStream(false)
             process = processBuilder.start()
 
@@ -91,7 +94,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
 
             val initParams = InitializeParams().apply {
                 @Suppress("DEPRECATION")
-                rootUri = project.basePath?.let { File(it).toURI().toString() }
+                rootUri = rootDir?.let { File(it).toURI().toString() }
                 capabilities = ClientCapabilities().apply {
                     textDocument = TextDocumentClientCapabilities().apply {
                         synchronization = SynchronizationCapabilities().apply {
