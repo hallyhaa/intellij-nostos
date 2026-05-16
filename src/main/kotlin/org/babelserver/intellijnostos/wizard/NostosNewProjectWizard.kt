@@ -17,7 +17,6 @@ import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.ui.dsl.builder.Panel
-import com.intellij.ui.dsl.builder.bindSelected
 import org.babelserver.intellijnostos.lsp.NostosProjectRoot
 import org.babelserver.intellijnostos.settings.NostosAppSettings
 import java.nio.file.Files
@@ -25,6 +24,9 @@ import java.nio.file.Path
 import javax.swing.Icon
 
 private const val NOSTOS_INSTALL_URL = "https://heynostos.tech"
+
+/** Name of the inner directory that holds the Nostos project (nostos.toml + sources). */
+private const val SOURCE_DIR_NAME = "src"
 
 /** Adds a "Nostos" entry to IntelliJ IDEA's New Project dialog. */
 class NostosNewProjectWizard : GeneratorNewProjectWizard {
@@ -42,19 +44,19 @@ class NostosNewProjectWizard : GeneratorNewProjectWizard {
 }
 
 /**
- * Settings and scaffolding for a new Nostos project: an optional nostos.toml
- * manifest plus a main.nos entry point.
+ * Scaffolds a new Nostos project as a two-level layout: an inner src/
+ * directory holding the Nostos project (nostos.toml and main.nos), and a
+ * sibling tests/ directory for test files that must stay out of the project.
  */
 class NostosNewProjectWizardStep(parent: NewProjectWizardStep) : AbstractNewProjectWizardStep(parent) {
-
-    private val createManifestProperty = propertyGraph.property(true)
 
     override fun setupUI(builder: Panel) {
         with(builder) {
             row {
-                checkBox("Create nostos.toml manifest")
-                    .bindSelected(createManifestProperty)
-                    .comment("Recommended. Lets nostos-lsp resolve the project and its dependencies.")
+                comment(
+                    "Creates the Nostos project in <b>src/</b>, with a <b>tests/</b> directory " +
+                        "beside it for test files that must stay out of the project."
+                )
             }
             if (NostosAppSettings.detectNostos() == null) {
                 row {
@@ -71,19 +73,25 @@ class NostosNewProjectWizardStep(parent: NewProjectWizardStep) : AbstractNewProj
         val basePath = project.basePath ?: return
         val projectName = baseData?.name ?: project.name
         val baseDir = Path.of(basePath)
+        val sourceDir = baseDir.resolve(SOURCE_DIR_NAME)
 
-        Files.createDirectories(baseDir)
-        Files.writeString(baseDir.resolve("main.nos"), NostosProjectScaffold.mainNosContent())
+        // The Nostos project lives in src/; tests/ sits beside it so test
+        // files are never compiled as part of the project.
+        Files.createDirectories(sourceDir)
+        Files.createDirectories(baseDir.resolve("tests"))
+
+        Files.writeString(sourceDir.resolve("main.nos"), NostosProjectScaffold.mainNosContent())
+        Files.writeString(
+            sourceDir.resolve(NostosProjectRoot.MANIFEST_NAME),
+            NostosProjectScaffold.nostosTomlContent(projectName),
+        )
         Files.writeString(baseDir.resolve(".gitignore"), NostosProjectScaffold.gitignoreContent())
-        if (createManifestProperty.get()) {
-            Files.writeString(
-                baseDir.resolve(NostosProjectRoot.MANIFEST_NAME),
-                NostosProjectScaffold.nostosTomlContent(projectName),
-            )
-        }
+        // Keep the otherwise-empty tests/ directory under version control.
+        Files.writeString(baseDir.resolve("tests").resolve(".gitkeep"), "")
+
         VfsUtil.markDirtyAndRefresh(false, true, true, baseDir.toFile())
 
-        openMainFile(project, baseDir.resolve("main.nos"))
+        openMainFile(project, sourceDir.resolve("main.nos"))
     }
 
     /** Opens the generated main.nos once the project has finished opening. */
