@@ -94,6 +94,8 @@
         <notificationGroup id="Nostos" displayType="BALLOON"/>
         <postStartupActivity
             implementation="org.babelserver.intellijnostos.lsp.NostosLspStartupActivity"/>
+        <newProjectWizard.generator
+            implementation="org.babelserver.intellijnostos.wizard.NostosNewProjectWizard"/>
         <projectViewNodeDecorator
             implementation="org.babelserver.intellijnostos.lsp.NostosFileStatusDecorator"/>
     </extensions>
