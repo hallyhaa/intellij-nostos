@@ -1,11 +1,14 @@
 package org.babelserver.intellijnostos.lsp
 
+import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.util.Version
+import com.intellij.notification.NotificationAction
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.editor.event.DocumentEvent
@@ -17,6 +20,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import org.babelserver.intellijnostos.NostosFileType
 import org.babelserver.intellijnostos.settings.NostosAppSettings
+import org.babelserver.intellijnostos.settings.NostosSettingsConfigurable
 import org.eclipse.lsp4j.*
 import org.eclipse.lsp4j.launch.LSPLauncher
 import org.eclipse.lsp4j.services.LanguageServer
@@ -40,9 +44,28 @@ class NostosLspServerManager(private val project: Project) : Disposable {
             client?.diagnosticsHandler = value
         }
 
-    fun startIfNeeded() {
+    /**
+     * Starts the language server if it is not already running.
+     *
+     * @param notifyIfMissing when true, a warning notification is shown if nostos
+     *   or nostos-lsp cannot be located. Callers pass false for projects without
+     *   Nostos files to avoid pestering unrelated projects.
+     */
+    fun startIfNeeded(notifyIfMissing: Boolean = true) {
         if (initialized) return
-        val lspPath = findLspExecutable() ?: return
+        val lspPath = when (val lookup = resolveLspExecutable()) {
+            is LspLookup.Found -> lookup.path
+            is LspLookup.LspMissing -> {
+                log.info("nostos found in ${lookup.nostosDir}, but no nostos-lsp beside it")
+                if (notifyIfMissing) notifyLspMissing(lookup.nostosDir)
+                return
+            }
+            LspLookup.NostosMissing -> {
+                log.info("No nostos installation found; LSP features disabled")
+                if (notifyIfMissing) notifyNostosMissing()
+                return
+            }
+        }
 
         if (!checkMinimumVersion()) return
 
@@ -216,6 +239,8 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     companion object {
         internal val MIN_VERSION = Version(0, 2, 18)
 
+        private const val NOSTOS_INSTALL_URL = "https://heynostos.tech"
+
         /** Parse "nostos 0.2.17" or "0.2.17" into a Version. */
         internal fun parseNostosVersion(versionOutput: String): Version? {
             val numPart = versionOutput.trim().split(" ").last()
@@ -226,18 +251,43 @@ class NostosLspServerManager(private val project: Project) : Disposable {
             project.getService(NostosLspServerManager::class.java)
     }
 
-    private fun findLspExecutable(): String? {
-        val nostosPath = NostosAppSettings.getInstance().getEffectiveNostosPath()
-        val nostosFile = File(nostosPath)
-        if (nostosFile.canExecute()) {
-            val lspFile = File(nostosFile.parentFile, "nostos-lsp")
-            if (lspFile.canExecute()) return lspFile.absolutePath
-        }
-        // Try well-known locations
-        val candidates = listOfNotNull(
-            NostosAppSettings.detectNostos()?.let { File(File(it).parentFile, "nostos-lsp").absolutePath }
+    private fun resolveLspExecutable(): LspLookup {
+        val settings = NostosAppSettings.getInstance()
+        return NostosExecutableResolver(
+            effectiveNostosPath = { settings.getEffectiveNostosPath() },
+            detectNostos = { NostosAppSettings.detectNostos() },
+            isExecutable = { it.canExecute() },
+        ).resolve()
+    }
+
+    private fun notifyNostosMissing() {
+        nostosNotification(
+            "Nostos not found",
+            "The Nostos plugin could not find a <code>nostos</code> installation, " +
+                "so language server features such as diagnostics are unavailable."
         )
-        return candidates.firstOrNull { File(it).canExecute() }
+    }
+
+    private fun notifyLspMissing(nostosDir: String) {
+        nostosNotification(
+            "nostos-lsp not found",
+            "Found <code>nostos</code> in $nostosDir, but no <code>nostos-lsp</code> executable " +
+                "beside it. Language server features are unavailable until nostos-lsp is installed."
+        )
+    }
+
+    private fun nostosNotification(title: String, content: String) {
+        NotificationGroupManager.getInstance()
+            .getNotificationGroup("Nostos")
+            .createNotification(title, content, NotificationType.WARNING)
+            .addAction(NotificationAction.createSimple("Configure path…") {
+                ShowSettingsUtil.getInstance()
+                    .showSettingsDialog(project, NostosSettingsConfigurable::class.java)
+            })
+            .addAction(NotificationAction.createSimple("Installation instructions") {
+                BrowserUtil.browse(NOSTOS_INSTALL_URL)
+            })
+            .notify(project)
     }
 
 }
