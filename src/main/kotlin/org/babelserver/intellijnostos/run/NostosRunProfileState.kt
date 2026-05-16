@@ -43,16 +43,22 @@ class NostosRunProfileState(
             throw ExecutionException("Nostos interpreter not found")
         }
 
-        // If the script is main.nos and has sibling .nos files, run the directory
-        // instead of the file — Nostos resolves modules relative to the directory.
-        val scriptFile = File(config.scriptPath)
-        val target = if (scriptFile.name == "main.nos") {
-            scriptFile.parent
+        val commandLine = if (config.binName.isNotBlank()) {
+            // Running a [[bin]] entry point: nostos resolves it against the
+            // project directory, selected with --bin.
+            val projectDir = config.workingDirectory.ifBlank { config.project.basePath ?: "." }
+            GeneralCommandLine(nostos, projectDir, "--bin", config.binName)
         } else {
-            config.scriptPath
+            // If the script is main.nos and has sibling .nos files, run the directory
+            // instead of the file — Nostos resolves modules relative to the directory.
+            val scriptFile = File(config.scriptPath)
+            val target = if (scriptFile.name == "main.nos") {
+                scriptFile.parent
+            } else {
+                config.scriptPath
+            }
+            GeneralCommandLine(nostos, target)
         }
-
-        val commandLine = GeneralCommandLine(nostos, target)
 
         if (config.arguments.isNotBlank()) {
             commandLine.addParameters(ParametersListUtil.parse(config.arguments))
