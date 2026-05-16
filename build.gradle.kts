@@ -1,10 +1,10 @@
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "2.3.20" // https://plugins.gradle.org/plugin/org.jetbrains.kotlin.jvm
+    id("org.jetbrains.kotlin.jvm") version "2.3.21" // https://plugins.gradle.org/plugin/org.jetbrains.kotlin.jvm
 
     // https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html#usage
-    id("org.jetbrains.intellij.platform") version "2.14.0" // https://plugins.gradle.org/plugin/org.jetbrains.intellij.platform
-    id("org.jetbrains.intellij.platform.grammarkit") version "2.14.0" // https://plugins.gradle.org/plugin/org.jetbrains.intellij.platform.grammarkit
+    id("org.jetbrains.intellij.platform") version "2.16.0" // https://plugins.gradle.org/plugin/org.jetbrains.intellij.platform
+    id("org.jetbrains.intellij.platform.grammarkit") version "2.16.0" // https://plugins.gradle.org/plugin/org.jetbrains.intellij.platform.grammarkit
 
     id("org.jetbrains.kotlinx.kover") version "0.9.8" // https://central.sonatype.com/artifact/org.jetbrains.kotlinx/kover-gradle-plugin/versions
     id("org.babelserver.gradle.test-logger") version "2.1.0" // https://plugins.gradle.org/plugin/org.babelserver.gradle.test-logger
@@ -28,7 +28,7 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:6.0.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
-    testImplementation("junit:junit:4.13.2")
+    testImplementation("junit:junit:4.13.2") // For BasePlatformTestCase
 
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testRuntimeOnly("org.junit.vintage:junit-vintage-engine")
