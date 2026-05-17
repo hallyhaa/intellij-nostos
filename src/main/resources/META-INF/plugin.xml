@@ -98,5 +98,17 @@
             implementation="org.babelserver.intellijnostos.wizard.NostosNewProjectWizard"/>
         <projectViewNodeDecorator
             implementation="org.babelserver.intellijnostos.lsp.NostosFileStatusDecorator"/>
+        <internalFileTemplate name="Nostos File"/>
     </extensions>
+
+    <actions>
+        <action
+            id="Nostos.NewNostosFile"
+            class="org.babelserver.intellijnostos.NostosCreateFileAction"
+            text="Nostos File"
+            description="Create a new Nostos file"
+            icon="/icons/nostos.svg">
+            <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewDir"/>
+        </action>
+    </actions>
 </idea-plugin>
