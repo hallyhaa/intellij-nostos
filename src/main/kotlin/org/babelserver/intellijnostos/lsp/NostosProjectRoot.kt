@@ -40,4 +40,31 @@ internal object NostosProjectRoot {
             compareBy({ it.count { c -> c == File.separatorChar } }, { it })
         )
     }
+
+    /**
+     * Scans [baseDir] and its subdirectories for nostos.toml files.
+     *
+     * The scan is bounded to [maxDepth] levels and skips dot-directories, so
+     * it stays cheap and never descends into .git, .idea or build caches. It
+     * works straight off the filesystem, independent of the IDE's indices —
+     * which can be stale right after a project is created.
+     */
+    fun findManifests(baseDir: File, maxDepth: Int = 3): List<String> {
+        val found = mutableListOf<String>()
+
+        fun scan(dir: File, depth: Int) {
+            val entries = dir.listFiles() ?: return
+            for (entry in entries) {
+                when {
+                    entry.isFile && entry.name == MANIFEST_NAME ->
+                        found.add(entry.absolutePath)
+                    entry.isDirectory && depth < maxDepth && !entry.name.startsWith(".") ->
+                        scan(entry, depth + 1)
+                }
+            }
+        }
+
+        scan(baseDir, 0)
+        return found
+    }
 }
