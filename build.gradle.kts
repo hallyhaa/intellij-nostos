@@ -22,7 +22,7 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        intellijIdeaCommunity(providers.gradleProperty("platformVersion").get())
+        intellijIdeaUltimate(providers.gradleProperty("platformVersion").get())
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
 
