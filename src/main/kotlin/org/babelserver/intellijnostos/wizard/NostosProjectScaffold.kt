@@ -22,7 +22,7 @@ internal object NostosProjectScaffold {
     fun nostosTomlContent(projectName: String): String = """
         [project]
         name = "$projectName"
-        version = "0.1.0"
+        version = "1.0.0"
     """.trimIndent() + "\n"
 
     /** A .gitignore covering the caches nostos writes into a project directory. */
@@ -32,5 +32,23 @@ internal object NostosProjectScaffold {
 
         # Per-definition files for the REPL/TUI
         .nostos/
+    """.trimIndent() + "\n"
+
+    /** A minimal README placed at the project root. */
+    fun readmeContent(projectName: String): String = """
+        # $projectName
+
+        A Nostos project.
+
+        ## Layout
+
+        - `src/` — sources and `nostos.toml`
+        - `tests/` — test files
+
+        ## Running
+
+        ```
+        nostos src/
+        ```
     """.trimIndent() + "\n"
 }

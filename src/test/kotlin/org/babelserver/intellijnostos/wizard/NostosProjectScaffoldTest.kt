@@ -10,7 +10,7 @@ class NostosProjectScaffoldTest {
     fun manifestEmbedsProjectNameAndDefaultVersion() {
         val toml = NostosProjectScaffold.nostosTomlContent("my-app")
         assertEquals(
-            "[project]\nname = \"my-app\"\nversion = \"0.1.0\"\n",
+            "[project]\nname = \"my-app\"\nversion = \"1.0.0\"\n",
             toml,
         )
     }
@@ -28,5 +28,12 @@ class NostosProjectScaffoldTest {
         val gitignore = NostosProjectScaffold.gitignoreContent()
         assertTrue(gitignore.contains(".nostos-cache/"), "should ignore the build cache")
         assertTrue(gitignore.contains(".nostos/"), "should ignore the REPL/TUI cache")
+    }
+
+    @Test
+    fun readmeHeadsWithTheProjectNameAndShowsHowToRun() {
+        val readme = NostosProjectScaffold.readmeContent("my-app")
+        assertTrue(readme.startsWith("# my-app"), "should head with the project name")
+        assertTrue(readme.contains("nostos src/"), "should show how to run the project")
     }
 }

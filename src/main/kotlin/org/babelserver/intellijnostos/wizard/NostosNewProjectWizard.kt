@@ -1,21 +1,21 @@
 package org.babelserver.intellijnostos.wizard
 
-import com.intellij.ide.BrowserUtil
 import com.intellij.ide.util.projectWizard.WizardContext
 import com.intellij.ide.wizard.AbstractNewProjectWizardStep
 import com.intellij.ide.wizard.GeneratorNewProjectWizard
+import com.intellij.ide.wizard.GitNewProjectWizardData.Companion.gitData
+import com.intellij.ide.wizard.GitNewProjectWizardStep
 import com.intellij.ide.wizard.NewProjectWizardBaseData.Companion.baseData
 import com.intellij.ide.wizard.NewProjectWizardBaseStep
 import com.intellij.ide.wizard.NewProjectWizardChainStep.Companion.nextStep
 import com.intellij.ide.wizard.NewProjectWizardStep
 import com.intellij.ide.wizard.RootNewProjectWizardStep
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.module.EmptyModuleType
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.startup.StartupManager
+import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.util.IconLoader
-import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.ui.dsl.builder.Panel
 import org.babelserver.intellijnostos.lsp.NostosProjectRoot
 import org.babelserver.intellijnostos.settings.NostosAppSettings
@@ -40,6 +40,7 @@ class NostosNewProjectWizard : GeneratorNewProjectWizard {
     override fun createStep(context: WizardContext): NewProjectWizardStep =
         RootNewProjectWizardStep(context)
             .nextStep(::NewProjectWizardBaseStep)
+            .nextStep(::GitNewProjectWizardStep)
             .nextStep(::NostosNewProjectWizardStep)
 }
 
@@ -52,12 +53,6 @@ class NostosNewProjectWizardStep(parent: NewProjectWizardStep) : AbstractNewProj
 
     override fun setupUI(builder: Panel) {
         with(builder) {
-            row {
-                comment(
-                    "Creates the Nostos project in <b>src/</b>, with a <b>tests/</b> directory " +
-                        "beside it for test files that must stay out of the project."
-                )
-            }
             if (NostosAppSettings.detectNostos() == null) {
                 row {
                     comment(
@@ -85,23 +80,43 @@ class NostosNewProjectWizardStep(parent: NewProjectWizardStep) : AbstractNewProj
             sourceDir.resolve(NostosProjectRoot.MANIFEST_NAME),
             NostosProjectScaffold.nostosTomlContent(projectName),
         )
-        Files.writeString(baseDir.resolve(".gitignore"), NostosProjectScaffold.gitignoreContent())
-        // Keep the otherwise-empty tests/ directory under version control.
-        Files.writeString(baseDir.resolve("tests").resolve(".gitkeep"), "")
+        // With a Git repository, add the repo-level files.
+        if (gitData?.git == true) {
+            Files.writeString(baseDir.resolve(".gitignore"), NostosProjectScaffold.gitignoreContent())
+            Files.writeString(baseDir.resolve("README.md"), NostosProjectScaffold.readmeContent(projectName))
+            Files.writeString(baseDir.resolve("tests").resolve(".gitkeep"), "")
+        }
 
         VfsUtil.markDirtyAndRefresh(false, true, true, baseDir.toFile())
 
-        openMainFile(project, sourceDir.resolve("main.nos"))
+        createModule(project, basePath, projectName)
     }
 
-    /** Opens the generated main.nos once the project has finished opening. */
-    private fun openMainFile(project: Project, mainFile: Path) {
-        StartupManager.getInstance(project).runAfterOpened {
-            ApplicationManager.getApplication().invokeLater({
-                val vf = LocalFileSystem.getInstance()
-                    .refreshAndFindFileByPath(mainFile.toString()) ?: return@invokeLater
-                FileEditorManager.getInstance(project).openFile(vf, true)
-            }, project.disposed)
+    /**
+     * Creates the project's module via a ModuleBuilder committed against the
+     * model the framework provides — the path the bundled IntelliJ wizard
+     * uses; GeneratorNewProjectWizard creates no module on its own. The
+     * module's content root covers the project directory, with src/ as a
+     * sources root, tests/ as a test sources root, and the nostos caches
+     * excluded.
+     */
+    private fun createModule(project: Project, basePath: String, projectName: String) {
+        val moduleModel = context.getUserData(NewProjectWizardStep.MODIFIABLE_MODULE_MODEL_KEY) ?: return
+        val moduleBuilder = EmptyModuleType.getInstance().createModuleBuilder()
+        moduleBuilder.name = projectName
+        moduleBuilder.moduleFilePath = "$basePath/$projectName.iml"
+        moduleBuilder.contentEntryPath = basePath
+        val module = moduleBuilder.commit(project, moduleModel)?.firstOrNull() ?: return
+
+        ModuleRootModificationUtil.updateModel(module) { model ->
+            val contentEntry = model.contentEntries.firstOrNull()
+                ?: model.addContentEntry(VfsUtilCore.pathToUrl(basePath))
+            contentEntry.sourceFolders.toList().forEach(contentEntry::removeSourceFolder)
+            contentEntry.addSourceFolder(VfsUtilCore.pathToUrl("$basePath/$SOURCE_DIR_NAME"), false)
+            contentEntry.addSourceFolder(VfsUtilCore.pathToUrl("$basePath/tests"), true)
+            // nostos writes its caches into the project (src/) root.
+            contentEntry.addExcludeFolder(VfsUtilCore.pathToUrl("$basePath/$SOURCE_DIR_NAME/.nostos"))
+            contentEntry.addExcludeFolder(VfsUtilCore.pathToUrl("$basePath/$SOURCE_DIR_NAME/.nostos-cache"))
         }
     }
 }
