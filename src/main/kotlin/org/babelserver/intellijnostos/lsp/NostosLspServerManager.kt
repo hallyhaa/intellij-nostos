@@ -17,7 +17,16 @@ import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VirtualFileManager
+import com.intellij.openapi.vfs.newvfs.BulkFileListener
+import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent
+import com.intellij.openapi.vfs.newvfs.events.VFileCopyEvent
+import com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent
+import com.intellij.openapi.vfs.newvfs.events.VFileDeleteEvent
+import com.intellij.openapi.vfs.newvfs.events.VFileEvent
+import com.intellij.openapi.vfs.newvfs.events.VFileMoveEvent
 import org.babelserver.intellijnostos.NostosFileType
 import org.babelserver.intellijnostos.settings.NostosAppSettings
 import org.babelserver.intellijnostos.settings.NostosSettingsConfigurable
@@ -37,6 +46,12 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     private var client: NostosLspClient? = null
     private var initialized = false
     private val openFiles = mutableSetOf<String>()
+
+    /** Workspace root last handed to nostos-lsp, reused when restarting. */
+    private var lastLspRoot: String? = null
+
+    /** Holds the editor/VFS listeners so a restart can dispose and re-register them. */
+    private var listenersDisposable: Disposable? = null
 
     var diagnosticsListener: ((PublishDiagnosticsParams) -> Unit)? = null
         set(value) {
@@ -71,7 +86,8 @@ class NostosLspServerManager(private val project: Project) : Disposable {
 
         if (!checkMinimumVersion()) return
 
-        val rootDir = lspRoot ?: project.basePath
+        val rootDir = lspRoot ?: lastLspRoot ?: project.basePath
+        lastLspRoot = rootDir
         log.info("Starting nostos-lsp: $lspPath (root: $rootDir)")
 
         try {
@@ -116,6 +132,9 @@ class NostosLspServerManager(private val project: Project) : Disposable {
                             formats = listOf(TokenFormat.Relative)
                         }
                     }
+                    workspace = WorkspaceClientCapabilities().apply {
+                        didChangeWatchedFiles = DidChangeWatchedFilesCapabilities()
+                    }
                 }
             }
 
@@ -134,7 +153,11 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     }
 
     private fun setupListeners() {
-        val connection = project.messageBus.connect(this)
+        val disposable = Disposer.newDisposable("NostosLspListeners")
+        Disposer.register(this, disposable)
+        listenersDisposable = disposable
+
+        val connection = project.messageBus.connect(disposable)
         connection.subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, object : FileEditorManagerListener {
             override fun fileOpened(source: FileEditorManager, file: VirtualFile) {
                 if (file.fileType == NostosFileType) {
@@ -156,7 +179,39 @@ class NostosLspServerManager(private val project: Project) : Disposable {
                     didChange(file, event.document.text)
                 }
             }
-        }, this)
+        }, disposable)
+
+        // Report on-disk changes to .nos files that are not open in an editor.
+        // Editors are covered by didChange above; this catches external edits,
+        // VCS operations, and changes to files the user never opened.
+        val appConnection = ApplicationManager.getApplication().messageBus.connect(disposable)
+        appConnection.subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
+            override fun after(events: List<VFileEvent>) {
+                if (!initialized) return
+                val fileEvents = events.mapNotNull { it.toWatchedFileEvent() }
+                if (fileEvents.isNotEmpty()) {
+                    server?.workspaceService?.didChangeWatchedFiles(DidChangeWatchedFilesParams(fileEvents))
+                }
+            }
+        })
+    }
+
+    /**
+     * Maps a VFS event for a .nos file to an LSP [FileEvent], or null when the
+     * event is irrelevant (not a .nos file, or a file already tracked as open
+     * and therefore handled by didChange).
+     */
+    private fun VFileEvent.toWatchedFileEvent(): FileEvent? {
+        if (!path.endsWith(".nos")) return null
+        val uri = URI("file", "", path, null).toString()
+        if (uri in openFiles) return null
+        val type = when (this) {
+            is VFileCreateEvent, is VFileCopyEvent -> FileChangeType.Created
+            is VFileDeleteEvent -> FileChangeType.Deleted
+            is VFileContentChangeEvent, is VFileMoveEvent -> FileChangeType.Changed
+            else -> return null
+        }
+        return FileEvent(uri, type)
     }
 
     private fun notifyOpenFiles() {
@@ -200,7 +255,24 @@ class NostosLspServerManager(private val project: Project) : Disposable {
 
     val activeServer: LanguageServer? get() = if (initialized) server else null
 
+    /**
+     * Stops the language server and starts it again. Internal plugin primitive
+     * for situations where the server's state has drifted from reality —
+     * crash recovery, configured-path or workspace-root changes, and so on.
+     * Not exposed to users.
+     *
+     * Runs synchronously (the start path blocks on initialization), so callers
+     * must invoke this off the EDT.
+     */
+    internal fun restart() {
+        log.info("Restarting nostos-lsp")
+        stopServer()
+        startIfNeeded()
+    }
+
     private fun stopServer() {
+        listenersDisposable?.let { Disposer.dispose(it) }
+        listenersDisposable = null
         try {
             server?.shutdown()?.get(5, TimeUnit.SECONDS)
             server?.exit()
