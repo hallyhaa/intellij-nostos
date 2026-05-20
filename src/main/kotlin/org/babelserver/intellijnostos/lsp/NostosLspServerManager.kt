@@ -131,6 +131,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
                             tokenModifiers = listOf("declaration", "definition")
                             formats = listOf(TokenFormat.Relative)
                         }
+                        inlayHint = InlayHintCapabilities()
                     }
                     workspace = WorkspaceClientCapabilities().apply {
                         didChangeWatchedFiles = DidChangeWatchedFilesCapabilities()

@@ -90,6 +90,9 @@
         <externalAnnotator
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosSemanticHighlighter"/>
+        <codeInsight.inlayProvider
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosInlayHintsProvider"/>
         <!--suppress PluginXmlI18n -->
         <notificationGroup id="Nostos" displayType="BALLOON"/>
         <postStartupActivity
