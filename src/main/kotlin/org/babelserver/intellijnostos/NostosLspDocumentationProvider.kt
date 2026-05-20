@@ -5,6 +5,7 @@
 package org.babelserver.intellijnostos
 
 import com.intellij.lang.documentation.AbstractDocumentationProvider
+import com.intellij.lang.documentation.DocumentationMarkup
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.psi.PsiDocumentManager
@@ -78,28 +79,33 @@ class NostosLspDocumentationProvider : AbstractDocumentationProvider() {
         contents ?: return null
         if (contents.isLeft) {
             val parts = contents.left ?: return null
-            val rendered = parts.joinToString("<br>") { part ->
+            val body = parts.joinToString("\n") { part ->
                 if (part.isLeft) escapeHtml(part.left ?: "")
-                else markedStringToHtml(part.right)
+                else escapeHtml(part.right?.value ?: "")
             }
-            return rendered.ifBlank { null }
+            return body.ifBlank { null }?.let(::wrapDefinition)
         }
         val markup = contents.right ?: return null
         val text = markup.value ?: return null
         if (text.isBlank()) return null
         return if (markup.kind == MarkupKind.MARKDOWN) {
-            markdownToHtml(text)
+            wrapContent(markdownToHtml(text))
         } else {
-            "<pre>${escapeHtml(text)}</pre>"
+            wrapDefinition(escapeHtml(text))
         }
     }
 
-    private fun markedStringToHtml(ms: MarkedString?): String {
-        val value = ms?.value ?: return ""
-        // MarkedString may carry a language hint; we render it as a code block
-        // regardless, which works fine for the type signatures the LSP returns.
-        return "<pre>${escapeHtml(value)}</pre>"
-    }
+    /**
+     * Wraps a code-shaped chunk in IDEA's `<div class='definition'><pre>...`
+     * markers so the popup picks up the theme-aware background and foreground
+     * colours of IDEA's documentation CSS instead of a default white `<pre>`.
+     */
+    private fun wrapDefinition(content: String): String =
+        DocumentationMarkup.DEFINITION_START + content + DocumentationMarkup.DEFINITION_END
+
+    /** Same idea as [wrapDefinition] but for HTML prose (markdown output). */
+    private fun wrapContent(content: String): String =
+        DocumentationMarkup.CONTENT_START + content + DocumentationMarkup.CONTENT_END
 
     private fun markdownToHtml(md: String): String {
         return try {
@@ -107,8 +113,8 @@ class NostosLspDocumentationProvider : AbstractDocumentationProvider() {
             val tree = MarkdownParser(flavour).buildMarkdownTreeFromString(md)
             HtmlGenerator(md, tree, flavour).generateHtml()
         } catch (e: Exception) {
-            log.debug("markdown render failed, falling back to <pre>", e)
-            "<pre>${escapeHtml(md)}</pre>"
+            log.debug("markdown render failed, falling back to escaped text", e)
+            escapeHtml(md)
         }
     }
 
