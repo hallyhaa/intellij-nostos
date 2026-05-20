@@ -136,6 +136,9 @@ class NostosLspServerManager(private val project: Project) : Disposable {
                     workspace = WorkspaceClientCapabilities().apply {
                         didChangeWatchedFiles = DidChangeWatchedFilesCapabilities()
                     }
+                    window = WindowClientCapabilities().apply {
+                        workDoneProgress = true
+                    }
                 }
             }
 
@@ -274,6 +277,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     private fun stopServer() {
         listenersDisposable?.let { Disposer.dispose(it) }
         listenersDisposable = null
+        client?.progressTracker?.cancelAll()
         try {
             server?.shutdown()?.get(5, TimeUnit.SECONDS)
             server?.exit()

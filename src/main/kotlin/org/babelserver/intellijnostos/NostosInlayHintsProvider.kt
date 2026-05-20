@@ -113,8 +113,11 @@ class NostosInlayHintsProvider : InlayHintsProvider<NoSettings> {
                 if (offset < 0) continue
                 val text = labelToString(hint.label) ?: continue
                 if (text.isEmpty()) continue
+                // Wrap small text in a rounded background so it sits on the
+                // editor baseline. Bare factory.smallText renders aligned to
+                // the top of the line, which makes hints look like superscript.
                 val presentation = withPadding(
-                    factory.smallText(text),
+                    factory.roundWithBackground(factory.smallText(text)),
                     left = hint.paddingLeft == true,
                     right = hint.paddingRight == true,
                 )
