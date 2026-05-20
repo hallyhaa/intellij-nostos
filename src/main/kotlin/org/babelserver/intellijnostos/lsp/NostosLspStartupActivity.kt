@@ -1,12 +1,15 @@
 package org.babelserver.intellijnostos.lsp
 
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
+import com.intellij.codeInsight.daemon.impl.InlayHintsPassFactoryInternal
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.smartReadAction
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.platform.ide.progress.withBackgroundProgress
-import com.intellij.psi.PsiDocumentManager
+import com.intellij.psi.PsiManager
+import com.intellij.psi.impl.source.PsiFileImpl
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
 import kotlinx.coroutines.future.await
@@ -29,13 +32,34 @@ class NostosLspStartupActivity : ProjectActivity {
             firstDiagnostics.complete(Unit)
             NostosDiagnosticsCache.cache[params.uri] = params.diagnostics
 
-            // Trigger re-annotation for the affected file
+            // Force the daemon to re-run for the whole project. The per-file
+            // restart(psiFile, reason) variant skips files whose document
+            // modification stamp has not changed since the last analysis --
+            // which is exactly the LSP-driven case: diagnostics change but
+            // the document does not. The project-wide restart() bypasses
+            // that gate. forceHintsUpdateOnNextPass clears the inlay pass's
+            // own modification-stamp cache so the next run actually re-
+            // queries our provider. The Internal class lives in
+            // com.intellij.codeInsight.daemon.impl; the platform exposes
+            // no equivalent on a non-impl surface yet.
             ApplicationManager.getApplication().invokeLater {
+                InlayHintsPassFactoryInternal.Companion.forceHintsUpdateOnNextPass()
                 val fem = FileEditorManager.getInstance(project)
+                val psiManager = PsiManager.getInstance(project)
+                val daemon = DaemonCodeAnalyzer.getInstance(project)
                 for (file in fem.openFiles) {
-                    if (file.fileType == NostosFileType) {
-                        PsiDocumentManager.getInstance(project).reparseFiles(listOf(file), false)
-                    }
+                    if (file.fileType != NostosFileType) continue
+                    val psiFile = psiManager.findFile(file) ?: continue
+                    // Bump the file's PSI modification counter so the daemon
+                    // scheduler does not skip its per-file mod-stamp gate. The
+                    // LSP changed the diagnostics without an accompanying
+                    // editor edit, so the document mod-stamp is unchanged --
+                    // which on its own makes restart(psiFile) a no-op for
+                    // any file that was analysed recently. Marking the PSI
+                    // subtree as changed forces a fresh pass and re-runs our
+                    // external annotator and inlay hint provider.
+                    (psiFile as? PsiFileImpl)?.subtreeChanged()
+                    daemon.restart(psiFile, RESTART_REASON)
                 }
             }
         }
@@ -72,5 +96,6 @@ class NostosLspStartupActivity : ProjectActivity {
 
     companion object {
         private const val ANALYSIS_TIMEOUT_MS = 60_000L
+        private const val RESTART_REASON = "Nostos LSP publishDiagnostics"
     }
 }

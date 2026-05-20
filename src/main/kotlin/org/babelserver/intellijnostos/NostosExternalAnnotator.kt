@@ -18,13 +18,26 @@ class NostosExternalAnnotator : ExternalAnnotator<NostosExternalAnnotator.Info, 
 
     private val log = Logger.getInstance(NostosExternalAnnotator::class.java)
 
-    data class Info(val filePath: String, val fileUri: String, val document: Document, val project: com.intellij.openapi.project.Project)
+    data class Info(
+        val filePath: String,
+        val fileUri: String,
+        val document: Document,
+        val project: com.intellij.openapi.project.Project,
+        /**
+         * Cache contents key. Including this makes `Info.equals` change whenever
+         * the LSP cache for this file changes, so IDEA's ExternalToolPass cannot
+         * short-circuit `doAnnotate` based on stale equality when diagnostics
+         * arrive without an accompanying document edit.
+         */
+        val diagnosticsKey: Int,
+    )
 
     override fun collectInformation(file: PsiFile, editor: Editor, hasErrors: Boolean): Info? {
         if (file !is NostosFile) return null
         val virtualFile = file.virtualFile ?: return null
         val uri = URI("file", "", virtualFile.path, null).toString()
-        return Info(virtualFile.path, uri, editor.document, file.project)
+        val diagnosticsKey = NostosDiagnosticsCache.cache[uri]?.hashCode() ?: 0
+        return Info(virtualFile.path, uri, editor.document, file.project, diagnosticsKey)
     }
 
     override fun doAnnotate(info: Info): List<Diagnostic> {
