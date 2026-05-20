@@ -67,6 +67,7 @@
         <codeInsight.parameterInfo
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosLspParameterInfoHandler"/>
+        <renameHandler implementation="org.babelserver.intellijnostos.lsp.NostosLspRenameHandler"/>
         <completion.contributor
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosCompletionContributor"/>

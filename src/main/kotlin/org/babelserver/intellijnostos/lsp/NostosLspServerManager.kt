@@ -124,6 +124,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
                         hover = HoverCapabilities()
                         definition = DefinitionCapabilities()
                         references = ReferencesCapabilities()
+                        rename = RenameCapabilities().apply { prepareSupport = true }
                         semanticTokens = SemanticTokensCapabilities().apply {
                             requests = SemanticTokensClientCapabilitiesRequests().apply {
                                 full = org.eclipse.lsp4j.jsonrpc.messages.Either.forLeft(true)
