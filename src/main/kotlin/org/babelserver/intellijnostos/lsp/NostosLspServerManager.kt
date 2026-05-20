@@ -120,6 +120,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
                         }
                         publishDiagnostics = PublishDiagnosticsCapabilities()
                         completion = CompletionCapabilities()
+                        signatureHelp = SignatureHelpCapabilities()
                         hover = HoverCapabilities()
                         definition = DefinitionCapabilities()
                         references = ReferencesCapabilities()

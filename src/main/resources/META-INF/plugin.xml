@@ -64,6 +64,9 @@
         <lang.documentationProvider
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosLspDocumentationProvider"/>
+        <codeInsight.parameterInfo
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosLspParameterInfoHandler"/>
         <completion.contributor
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosCompletionContributor"/>
