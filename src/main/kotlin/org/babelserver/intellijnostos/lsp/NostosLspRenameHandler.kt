@@ -10,6 +10,7 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -93,6 +94,8 @@ class NostosLspRenameHandler : RenameHandler {
             server.textDocumentService
                 .prepareRename(PrepareRenameParams(TextDocumentIdentifier(uri), position))
                 .get(PREPARE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } catch (e: ProcessCanceledException) {
+            throw e
         } catch (e: Exception) {
             log.debug("prepareRename failed", e)
             null
@@ -123,6 +126,8 @@ class NostosLspRenameHandler : RenameHandler {
                     server.textDocumentService
                         .rename(RenameParams(TextDocumentIdentifier(uri), position, newName))
                         .get(RENAME_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                } catch (e: ProcessCanceledException) {
+                    throw e
                 } catch (e: Exception) {
                     log.warn("rename request failed", e)
                     null

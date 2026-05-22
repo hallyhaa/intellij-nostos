@@ -32,16 +32,16 @@ class NostosLspStartupActivity : ProjectActivity {
             firstDiagnostics.complete(Unit)
             NostosDiagnosticsCache.cache[params.uri] = params.diagnostics
 
-            // Force the daemon to re-run for the whole project. The per-file
-            // restart(psiFile, reason) variant skips files whose document
-            // modification stamp has not changed since the last analysis --
-            // which is exactly the LSP-driven case: diagnostics change but
-            // the document does not. The project-wide restart() bypasses
-            // that gate. forceHintsUpdateOnNextPass clears the inlay pass's
-            // own modification-stamp cache so the next run actually re-
-            // queries our provider. The Internal class lives in
-            // com.intellij.codeInsight.daemon.impl; the platform exposes
-            // no equivalent on a non-impl surface yet.
+            // Force the daemon to re-run for the open Nostos files. The LSP
+            // changed the diagnostics without an accompanying editor edit, so
+            // each file's document modification stamp is unchanged -- and on
+            // its own the daemon skips files whose stamp has not moved since
+            // their last analysis. We work around that gate per file inside
+            // the loop below (see the subtreeChanged call). forceHintsUpdate-
+            // OnNextPass additionally clears the inlay pass's own modification-
+            // stamp cache so the next run actually re-queries our provider.
+            // That Internal class lives in com.intellij.codeInsight.daemon.impl;
+            // the platform exposes no equivalent on a non-impl surface yet.
             ApplicationManager.getApplication().invokeLater {
                 InlayHintsPassFactoryInternal.Companion.forceHintsUpdateOnNextPass()
                 val fem = FileEditorManager.getInstance(project)
