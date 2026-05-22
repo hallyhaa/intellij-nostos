@@ -19,7 +19,7 @@ class NostosParserTest : BasePlatformTestCase() {
 
         val expectedFile = File("$testDataPath/parser/$testName.txt")
         if (!expectedFile.exists()) {
-            expectedFile.writeText(actual)
+            expectedFile.writeText(actual + "\n")
             fail("Expected output file $expectedFile did not exist; created with actual content. Re-run test.")
             return
         }
