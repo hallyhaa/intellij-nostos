@@ -61,13 +61,20 @@ object NostosManifest {
         }
     }
 
-    /** Drops a trailing `#` comment, leaving `#` characters inside strings intact. */
+    /**
+     * Drops a trailing `#` comment, leaving `#` characters inside strings
+     * intact. Tracks which quote character opened the current string so that
+     * both single- and double-quoted TOML values are handled consistently
+     * with [unquote]: a `'` inside a double-quoted string does not end it, and
+     * vice versa. Backslash escaping inside basic strings is deliberately not
+     * handled — bin names and entry points never contain escaped quotes.
+     */
     private fun stripComment(line: String): String {
-        var inString = false
+        var quote: Char? = null
         for (i in line.indices) {
-            when (line[i]) {
-                '"' -> inString = !inString
-                '#' -> if (!inString) return line.substring(0, i)
+            when (val c = line[i]) {
+                '"', '\'' -> if (quote == null) quote = c else if (quote == c) quote = null
+                '#' -> if (quote == null) return line.substring(0, i)
             }
         }
         return line

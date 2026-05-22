@@ -82,6 +82,21 @@ class NostosManifestTest {
     }
 
     @Test
+    fun keepsHashCharactersInsideSingleQuotedValues() {
+        // TOML literal (single-quoted) strings may contain `#`; comment
+        // stripping must not truncate the value at it.
+        val toml = """
+            [[bin]]
+            name = 'ta#g'
+            entry = 'main.main'
+        """.trimIndent()
+        assertEquals(
+            listOf(NostosBin("ta#g", "main.main", isDefault = false)),
+            NostosManifest.parseBins(toml),
+        )
+    }
+
+    @Test
     fun skipsBinTablesWithoutAName() {
         val toml = """
             [[bin]]
