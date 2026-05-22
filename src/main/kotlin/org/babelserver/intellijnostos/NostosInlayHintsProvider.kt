@@ -91,10 +91,13 @@ class NostosInlayHintsProvider : InlayHintsProvider<NoSettings> {
 
             val params = InlayHintParams().apply {
                 textDocument = TextDocumentIdentifier(URI("file", "", virtualFile.path, null).toString())
-                range = Range(
-                    Position(0, 0),
-                    Position(document.lineCount.coerceAtLeast(1), 0),
-                )
+                // Whole-document range. End at the end of the last real line:
+                // LSP line numbers are 0-based, so Position(lineCount, 0) would
+                // point one line past the document and a strict server could
+                // reject it or drop hints.
+                val lastLine = (document.lineCount - 1).coerceAtLeast(0)
+                val lastLineEnd = document.getLineEndOffset(lastLine) - document.getLineStartOffset(lastLine)
+                range = Range(Position(0, 0), Position(lastLine, lastLineEnd))
             }
 
             val hints: List<InlayHint> = try {
