@@ -23,12 +23,15 @@ class NostosRunLineMarkerContributor : RunLineMarkerContributor() {
         if (element.textRange.startOffset != 0) return null
 
         // If the file hosts [[bin]] entry points, offer to run each of them.
-        val path = file.virtualFile?.path
-        if (path != null) {
-            val hostedBins = NostosBinDiscovery.binsInModule(File(path))
-            val projectRoot = if (hostedBins.isNotEmpty()) NostosBinDiscovery.projectRoot(File(path)) else null
+        // Discovery goes through the VFS so this highlighting-pass call does not
+        // do blocking disk traversal.
+        val virtualFile = file.virtualFile
+        if (virtualFile != null) {
+            val hostedBins = NostosBinDiscovery.binsInModule(virtualFile)
+            val projectRoot = if (hostedBins.isNotEmpty()) NostosBinDiscovery.projectRoot(virtualFile) else null
             if (projectRoot != null) {
-                val actions = hostedBins.map { RunBinAction(projectRoot, it) }.toTypedArray<AnAction>()
+                val rootFile = File(projectRoot.path)
+                val actions = hostedBins.map { RunBinAction(rootFile, it) }.toTypedArray<AnAction>()
                 return Info(AllIcons.RunConfigurations.TestState.Run, actions) { "Run Nostos entry point" }
             }
         }

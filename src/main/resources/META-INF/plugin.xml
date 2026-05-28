@@ -10,6 +10,19 @@
     ]]></description>
 
     <change-notes><![CDATA[
+    <b>0.2.1</b>
+    <ul>
+        <li>Inlay type hints from nostos-lsp</li>
+        <li>Hover documentation popup (Ctrl+Q) backed by nostos-lsp</li>
+        <li>Parameter info (signature help) when calling functions</li>
+        <li>Refactor &rarr; Rename wired to nostos-lsp</li>
+        <li>New Project wizard for scaffolding Nostos projects</li>
+        <li>New Nostos File action</li>
+        <li>Run <code>[[bin]]</code> entry points declared in nostos.toml</li>
+        <li>Live reload when .nos files change on disk</li>
+        <li>Progress reporting for long-running language server work</li>
+        <li>Friendlier parser error messages</li>
+    </ul>
     <b>0.2.0</b>
     <ul>
         <li>Live diagnostics via nostos-lsp integration</li>

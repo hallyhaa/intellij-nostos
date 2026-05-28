@@ -1,10 +1,29 @@
 package org.babelserver.intellijnostos.run
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class NostosManifestTest {
+
+    @Test
+    fun acceptsIdentifierLikeBinNames() {
+        assertTrue(NostosManifest.isValidBinName("server"))
+        assertTrue(NostosManifest.isValidBinName("cli-tool"))
+        assertTrue(NostosManifest.isValidBinName("worker_2"))
+        assertTrue(NostosManifest.isValidBinName("A1"))
+    }
+
+    @Test
+    fun rejectsOptionLikeOrUnsafeBinNames() {
+        assertFalse(NostosManifest.isValidBinName(""))
+        assertFalse(NostosManifest.isValidBinName("--foo"))
+        assertFalse(NostosManifest.isValidBinName("-rf"))
+        assertFalse(NostosManifest.isValidBinName("ta#g"))
+        assertFalse(NostosManifest.isValidBinName("a b"))
+        assertFalse(NostosManifest.isValidBinName("name;rm -rf"))
+    }
 
     @Test
     fun parsesNoBinsFromAManifestWithoutThem() {

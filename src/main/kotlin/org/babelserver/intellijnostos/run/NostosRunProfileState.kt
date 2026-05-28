@@ -22,11 +22,12 @@ class NostosRunProfileState(
 ) : CommandLineState(environment) {
 
     override fun startProcess(): ProcessHandler {
-        val nostos = config.nostosExecutable.ifBlank {
+        val configured = config.nostosExecutable.ifBlank {
             NostosAppSettings.getInstance().getEffectiveNostosPath()
         }
+        val nostos = resolveAbsoluteExecutable(configured)
 
-        if (!File(nostos).canExecute() && NostosAppSettings.detectNostos() == null) {
+        if (nostos == null) {
             NotificationGroupManager.getInstance()
                 .getNotificationGroup("Nostos")
                 .createNotification(
@@ -45,7 +46,12 @@ class NostosRunProfileState(
 
         val commandLine = if (config.binName.isNotBlank()) {
             // Running a [[bin]] entry point: nostos resolves it against the
-            // project directory, selected with --bin.
+            // project directory, selected with --bin. The bin name originates
+            // from a project's nostos.toml (or a saved run config), so validate
+            // it here before it becomes a command-line argument.
+            if (!NostosManifest.isValidBinName(config.binName)) {
+                throw ExecutionException("Invalid Nostos bin name: '${config.binName}'")
+            }
             val projectDir = config.workingDirectory.ifBlank { config.project.basePath ?: "." }
             GeneralCommandLine(nostos, projectDir, "--bin", config.binName)
         } else {
@@ -72,5 +78,21 @@ class NostosRunProfileState(
             .createColoredProcessHandler(commandLine)
         ProcessTerminatedListener.attach(processHandler)
         return processHandler
+    }
+
+    /**
+     * Resolves [configured] to an absolute executable path, or null if none can
+     * be found. A relative or bare name (e.g. "nostos") is never launched as-is:
+     * the process runs with the project directory as its working directory, and
+     * on some platforms a non-absolute name resolves against that directory,
+     * which would let an untrusted project ship its own "nostos" binary. Bare
+     * names are instead resolved against PATH and well-known install locations.
+     */
+    private fun resolveAbsoluteExecutable(configured: String): String? {
+        val file = File(configured)
+        if (file.isAbsolute) {
+            return if (file.canExecute()) file.path else null
+        }
+        return NostosAppSettings.detectNostos()
     }
 }

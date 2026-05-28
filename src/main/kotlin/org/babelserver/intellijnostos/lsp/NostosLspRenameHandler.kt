@@ -33,6 +33,7 @@ import org.eclipse.lsp4j.TextDocumentIdentifier
 import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.WorkspaceEdit
 import org.eclipse.lsp4j.jsonrpc.messages.Either3
+import org.eclipse.lsp4j.services.LanguageServer
 import java.net.URI
 import java.util.concurrent.TimeUnit
 
@@ -41,10 +42,11 @@ import java.util.concurrent.TimeUnit
  * `textDocument/prepareRename` and `textDocument/rename` requests.
  *
  * Flow:
- *  1. `prepareRename` runs synchronously on the EDT (short timeout): tells us
- *     whether the caret is on a renameable symbol, plus a placeholder name to
- *     pre-fill the dialog with.
- *  2. A modal input dialog asks for the new name with light local validation.
+ *  1. `prepareRename` runs in a [Task.Backgroundable] (a blocking LSP roundtrip
+ *     must never run on the EDT): tells us whether the caret is on a renameable
+ *     symbol, plus a placeholder name to pre-fill the dialog with.
+ *  2. Back on the EDT, a modal input dialog asks for the new name with light
+ *     local validation.
  *  3. `rename` runs in a [Task.Backgroundable] (the server may take time on a
  *     large project), returning a `WorkspaceEdit` describing every text edit
  *     to apply.
@@ -90,16 +92,41 @@ class NostosLspRenameHandler : RenameHandler {
         val uri = URI("file", "", virtualFile.path, null).toString()
         val position = Position(line, character)
 
-        val prepared = try {
-            server.textDocumentService
-                .prepareRename(PrepareRenameParams(TextDocumentIdentifier(uri), position))
-                .get(PREPARE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-        } catch (e: ProcessCanceledException) {
-            throw e
-        } catch (e: Exception) {
-            log.debug("prepareRename failed", e)
-            null
-        }
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Preparing rename…", true) {
+            override fun run(indicator: ProgressIndicator) {
+                indicator.isIndeterminate = true
+                val prepared = try {
+                    server.textDocumentService
+                        .prepareRename(PrepareRenameParams(TextDocumentIdentifier(uri), position))
+                        .get(PREPARE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                } catch (e: ProcessCanceledException) {
+                    throw e
+                } catch (e: Exception) {
+                    log.debug("prepareRename failed", e)
+                    null
+                }
+                ApplicationManager.getApplication().invokeLater {
+                    promptAndRename(project, editor, document, caret, uri, position, server, prepared)
+                }
+            }
+        })
+    }
+
+    /**
+     * Runs on the EDT after [prepareRename] returns: resolves the rename range,
+     * asks the user for the new name, and launches the [rename] request in the
+     * background.
+     */
+    private fun promptAndRename(
+        project: Project,
+        editor: Editor,
+        document: Document,
+        caret: Int,
+        uri: String,
+        position: Position,
+        server: LanguageServer,
+        prepared: Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>?,
+    ) {
         val (range, placeholder) = extractRangeAndPlaceholder(prepared, document, caret) ?: run {
             showError(editor, "Cannot rename element at caret")
             return
@@ -150,18 +177,19 @@ class NostosLspRenameHandler : RenameHandler {
         editor: Editor,
         @Suppress("UNUSED_PARAMETER") originalRange: Range,
     ) {
-        val perFileEdits: Map<String, List<TextEdit>> = edit.changes ?: emptyMap()
         val documentChanges = edit.documentChanges
-        if (perFileEdits.isEmpty() && documentChanges.isNullOrEmpty()) {
+        val perFileEdits: Map<String, List<TextEdit>> = edit.changes ?: emptyMap()
+        if (documentChanges.isNullOrEmpty() && perFileEdits.isEmpty()) {
             showError(editor, "Rename: nothing to change")
             return
         }
 
         CommandProcessor.getInstance().executeCommand(project, {
             WriteCommandAction.runWriteCommandAction(project) {
-                for ((uri, edits) in perFileEdits) {
-                    applyEditsToFile(project, uri, edits)
-                }
+                // Per the LSP spec, a client that supports `documentChanges`
+                // must use it and ignore the legacy `changes` map. Some servers
+                // populate both with identical edits for backward compatibility;
+                // applying both would corrupt the file by editing it twice.
                 if (!documentChanges.isNullOrEmpty()) {
                     for (entry in documentChanges) {
                         if (entry.isLeft) {
@@ -171,6 +199,10 @@ class NostosLspRenameHandler : RenameHandler {
                         }
                         // Resource operations (create/rename/delete files) are
                         // not in scope for rename refactoring.
+                    }
+                } else {
+                    for ((uri, edits) in perFileEdits) {
+                        applyEditsToFile(project, uri, edits)
                     }
                 }
             }

@@ -61,6 +61,18 @@ object NostosManifest {
         }
     }
 
+    private val BIN_NAME = Regex("[A-Za-z0-9][A-Za-z0-9_-]*")
+
+    /**
+     * True when [name] is a safe value for the `--bin` flag: an identifier-like
+     * token starting with an alphanumeric. Rejecting other shapes (notably a
+     * leading `-`) stops a hand-edited or hostile nostos.toml from smuggling an
+     * option-like token such as "--foo" onto the command line. Validation lives
+     * here next to the parser but is applied at the launch boundary, where the
+     * value actually becomes a process argument.
+     */
+    fun isValidBinName(name: String): Boolean = BIN_NAME.matches(name)
+
     /**
      * Drops a trailing `#` comment, leaving `#` characters inside strings
      * intact. Tracks which quote character opened the current string so that
