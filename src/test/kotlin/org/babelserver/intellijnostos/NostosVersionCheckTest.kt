@@ -29,6 +29,12 @@ class NostosVersionCheckTest {
     }
 
     @Test
+    fun testParseWithTrailingBuildMetadata() {
+        val v = NostosLspServerManager.parseNostosVersion("nostos 0.2.18 (abcdef0)")
+        assertEquals(Version(0, 2, 18), v)
+    }
+
+    @Test
     fun testParseInvalidReturnsNull() {
         assertNull(NostosLspServerManager.parseNostosVersion("not a version"))
     }

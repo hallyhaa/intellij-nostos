@@ -59,7 +59,7 @@ class NostosLspStartupActivity : ProjectActivity {
                     // subtree as changed forces a fresh pass and re-runs our
                     // external annotator and inlay hint provider.
                     (psiFile as? PsiFileImpl)?.subtreeChanged()
-                    daemon.restart(psiFile, RESTART_REASON)
+                    daemon.restart(psiFile)
                 }
             }
         }
@@ -96,6 +96,5 @@ class NostosLspStartupActivity : ProjectActivity {
 
     companion object {
         private const val ANALYSIS_TIMEOUT_MS = 60_000L
-        private const val RESTART_REASON = "Nostos LSP publishDiagnostics"
     }
 }

@@ -3,7 +3,6 @@ package org.babelserver.intellijnostos
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.ExternalAnnotator
 import com.intellij.lang.annotation.HighlightSeverity
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.util.TextRange
@@ -15,8 +14,6 @@ import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 
 class NostosExternalAnnotator : ExternalAnnotator<NostosExternalAnnotator.Info, List<Diagnostic>>() {
-
-    private val log = Logger.getInstance(NostosExternalAnnotator::class.java)
 
     data class Info(
         val filePath: String,
@@ -43,9 +40,7 @@ class NostosExternalAnnotator : ExternalAnnotator<NostosExternalAnnotator.Info, 
     override fun doAnnotate(info: Info): List<Diagnostic> {
         val manager = NostosLspServerManager.getInstance(info.project)
         manager.startIfNeeded()
-        val result = NostosDiagnosticsCache.cache[info.fileUri] ?: emptyList()
-        log.info("doAnnotate: uri='${info.fileUri}', cached=${result.size}, cacheKeys=${NostosDiagnosticsCache.cache.keys}")
-        return result
+        return NostosDiagnosticsCache.cache[info.fileUri] ?: emptyList()
     }
 
     override fun apply(file: PsiFile, diagnostics: List<Diagnostic>, holder: AnnotationHolder) {

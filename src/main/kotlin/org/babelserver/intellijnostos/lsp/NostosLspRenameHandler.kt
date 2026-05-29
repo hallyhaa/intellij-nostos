@@ -15,6 +15,7 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.ui.InputValidator
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.LocalFileSystem
@@ -212,6 +213,13 @@ class NostosLspRenameHandler : RenameHandler {
     private fun applyEditsToFile(project: Project, uri: String, edits: List<TextEdit>) {
         val vfile = resolveFile(uri) ?: run {
             log.warn("rename: could not resolve $uri")
+            return
+        }
+        // Only edit files that belong to this project. The server returns the
+        // URIs to change; constraining them to project content stops a buggy
+        // or malicious server from rewriting arbitrary files on disk.
+        if (!ProjectFileIndex.getInstance(project).isInContent(vfile)) {
+            log.warn("rename: refusing to edit file outside project content: $uri")
             return
         }
         val document = FileDocumentManager.getInstance().getDocument(vfile) ?: run {

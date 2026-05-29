@@ -204,11 +204,17 @@ class NostosLspServerManager(private val project: Project) : Disposable {
 
     /**
      * Maps a VFS event for a .nos file to an LSP [FileEvent], or null when the
-     * event is irrelevant (not a .nos file, or a file already tracked as open
-     * and therefore handled by didChange).
+     * event is irrelevant (not a .nos file, outside this project's workspace
+     * root, or a file already tracked as open and therefore handled by
+     * didChange).
+     *
+     * The VFS_CHANGES listener is application-wide, so without the root check a
+     * project's server would be told about .nos changes in every other open
+     * project too.
      */
     private fun VFileEvent.toWatchedFileEvent(): FileEvent? {
         if (!path.endsWith(".nos")) return null
+        if (!isUnderWorkspaceRoot(path)) return null
         val uri = URI("file", "", path, null).toString()
         if (uri in openFiles) return null
         val type = when (this) {
@@ -218,6 +224,12 @@ class NostosLspServerManager(private val project: Project) : Disposable {
             else -> return null
         }
         return FileEvent(uri, type)
+    }
+
+    /** True when [filePath] lives inside the workspace root handed to nostos-lsp. */
+    private fun isUnderWorkspaceRoot(filePath: String): Boolean {
+        val root = (lastLspRoot ?: project.basePath)?.trimEnd('/') ?: return false
+        return filePath == root || filePath.startsWith("$root/")
     }
 
     private fun notifyOpenFiles() {
@@ -323,9 +335,16 @@ class NostosLspServerManager(private val project: Project) : Disposable {
 
         private const val NOSTOS_INSTALL_URL = "https://heynostos.tech"
 
-        /** Parse "nostos 0.2.17" or "0.2.17" into a Version. */
+        private val VERSION_PATTERN = Regex("""\d+(?:\.\d+)+""")
+
+        /**
+         * Parse the dotted version out of `nostos --version` output. Handles
+         * "0.2.17", "nostos 0.2.17", and forms with trailing build metadata
+         * such as "nostos 0.2.18 (abcdef0)" by picking the first dotted-number
+         * token rather than the last whitespace-separated one.
+         */
         internal fun parseNostosVersion(versionOutput: String): Version? {
-            val numPart = versionOutput.trim().split(" ").last()
+            val numPart = VERSION_PATTERN.find(versionOutput)?.value ?: return null
             return Version.parseVersion(numPart)
         }
 
