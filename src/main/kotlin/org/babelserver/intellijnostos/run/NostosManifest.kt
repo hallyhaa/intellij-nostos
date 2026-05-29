@@ -1,0 +1,105 @@
+package org.babelserver.intellijnostos.run
+
+/**
+ * A `[[bin]]` entry point declared in a project's nostos.toml.
+ *
+ * @param name the binary name, used with the `--bin` flag
+ * @param entry the entry point as `module.function` (may be empty if omitted)
+ * @param isDefault whether this is the project's default entry point
+ */
+data class NostosBin(
+    val name: String,
+    val entry: String,
+    val isDefault: Boolean,
+)
+
+/**
+ * A minimal, dependency-free reader for the `[[bin]]` tables of a nostos.toml.
+ *
+ * It deliberately understands only what the plugin needs — array-of-tables
+ * named `bin` with string `name`/`entry` and boolean `default` keys — and
+ * ignores everything else. Parsing is pure so it can be unit-tested.
+ */
+object NostosManifest {
+
+    /** Parses every `[[bin]]` entry from the given nostos.toml content. */
+    fun parseBins(tomlContent: String): List<NostosBin> {
+        val tables = mutableListOf<MutableMap<String, String>>()
+        var current: MutableMap<String, String>? = null
+
+        for (rawLine in tomlContent.lineSequence()) {
+            val line = stripComment(rawLine).trim()
+            if (line.isEmpty()) continue
+
+            if (line.startsWith("[")) {
+                val isArrayOfTables = line.startsWith("[[") && line.endsWith("]]")
+                val tableName = line.trim('[', ']').trim()
+                current = if (isArrayOfTables && tableName == "bin") {
+                    mutableMapOf<String, String>().also { tables.add(it) }
+                } else {
+                    null
+                }
+                continue
+            }
+
+            val table = current ?: continue
+            val separator = line.indexOf('=')
+            if (separator < 0) continue
+            val key = line.substring(0, separator).trim()
+            val value = line.substring(separator + 1).trim()
+            if (key.isNotEmpty()) table[key] = value
+        }
+
+        return tables.mapNotNull { table ->
+            val name = unquote(table["name"]) ?: return@mapNotNull null
+            if (name.isEmpty()) return@mapNotNull null
+            NostosBin(
+                name = name,
+                entry = unquote(table["entry"]) ?: "",
+                isDefault = table["default"]?.trim() == "true",
+            )
+        }
+    }
+
+    private val BIN_NAME = Regex("[A-Za-z0-9][A-Za-z0-9_-]*")
+
+    /**
+     * True when [name] is a safe value for the `--bin` flag: an identifier-like
+     * token starting with an alphanumeric. Rejecting other shapes (notably a
+     * leading `-`) stops a hand-edited or hostile nostos.toml from smuggling an
+     * option-like token such as "--foo" onto the command line. Validation lives
+     * here next to the parser but is applied at the launch boundary, where the
+     * value actually becomes a process argument.
+     */
+    fun isValidBinName(name: String): Boolean = BIN_NAME.matches(name)
+
+    /**
+     * Drops a trailing `#` comment, leaving `#` characters inside strings
+     * intact. Tracks which quote character opened the current string so that
+     * both single- and double-quoted TOML values are handled consistently
+     * with [unquote]: a `'` inside a double-quoted string does not end it, and
+     * vice versa. Backslash escaping inside basic strings is deliberately not
+     * handled — bin names and entry points never contain escaped quotes.
+     */
+    private fun stripComment(line: String): String {
+        var quote: Char? = null
+        for (i in line.indices) {
+            when (val c = line[i]) {
+                '"', '\'' -> if (quote == null) quote = c else if (quote == c) quote = null
+                '#' -> if (quote == null) return line.substring(0, i)
+            }
+        }
+        return line
+    }
+
+    /** Returns the content of a quoted TOML string, or null if [value] is not quoted. */
+    private fun unquote(value: String?): String? {
+        val trimmed = value?.trim() ?: return null
+        if (trimmed.length < 2) return null
+        val quote = trimmed.first()
+        if ((quote == '"' || quote == '\'') && trimmed.last() == quote) {
+            return trimmed.substring(1, trimmed.length - 1)
+        }
+        return null
+    }
+}

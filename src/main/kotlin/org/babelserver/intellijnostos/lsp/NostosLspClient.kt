@@ -5,13 +5,17 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import org.eclipse.lsp4j.*
+import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
 import org.eclipse.lsp4j.services.LanguageClient
+import java.util.concurrent.CompletableFuture
 
 class NostosLspClient(private val project: Project) : LanguageClient {
 
     private val log = Logger.getInstance(NostosLspClient::class.java)
     var diagnosticsHandler: ((PublishDiagnosticsParams) -> Unit)? = null
+
+    internal val progressTracker = NostosLspProgressTracker(project)
 
     override fun telemetryEvent(obj: Any?) {
         // nostos-lsp does not send telemetry events
@@ -54,5 +58,36 @@ class NostosLspClient(private val project: Project) : LanguageClient {
             MessageType.Warning -> log.warn("LSP: ${params.message}")
             else -> log.info("LSP: ${params.message}")
         }
+    }
+
+    override fun createProgress(params: WorkDoneProgressCreateParams): CompletableFuture<Void> {
+        // Acknowledge the token — the actual Begin/Report/End notifications arrive
+        // via notifyProgress and are routed through the tracker there.
+        return CompletableFuture.completedFuture(null)
+    }
+
+    override fun notifyProgress(params: ProgressParams) {
+        val token = tokenAsString(params.token) ?: return
+        val value = params.value ?: return
+        if (!value.isLeft) return
+        when (val notification = value.left) {
+            is WorkDoneProgressBegin ->
+                progressTracker.begin(
+                    token,
+                    notification.title ?: "Nostos",
+                    notification.message,
+                    notification.percentage,
+                )
+            is WorkDoneProgressReport ->
+                progressTracker.report(token, notification.message, notification.percentage)
+            is WorkDoneProgressEnd ->
+                progressTracker.end(token, notification.message)
+        }
+    }
+
+    private fun tokenAsString(token: Either<String, Int>?): String? = when {
+        token == null -> null
+        token.isLeft -> token.left
+        else -> token.right.toString()
     }
 }

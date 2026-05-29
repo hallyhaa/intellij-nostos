@@ -38,10 +38,18 @@ class NostosRunConfiguration(
         get() = options.workingDirectory
         set(value) { options.workingDirectory = value }
 
+    var binName: String
+        get() = options.binName
+        set(value) { options.binName = value }
+
     override fun getConfigurationEditor(): SettingsEditor<out RunConfiguration> =
         NostosSettingsEditor(project)
 
     override fun checkConfiguration() {
+        if (binName.isNotBlank()) {
+            checkBinConfiguration()
+            return
+        }
         if (scriptPath.isBlank()) {
             throw RuntimeConfigurationError("Script path is not specified")
         }
@@ -54,10 +62,22 @@ class NostosRunConfiguration(
         }
     }
 
+    /** Validates a run that targets a `[[bin]]` entry point rather than a script. */
+    private fun checkBinConfiguration() {
+        val dir = File(workingDirectory)
+        if (workingDirectory.isBlank() || !dir.isDirectory) {
+            throw RuntimeConfigurationError("Project directory for bin '$binName' is not specified")
+        }
+        if (!File(dir, "nostos.toml").isFile) {
+            throw RuntimeConfigurationWarning("No nostos.toml found in $workingDirectory")
+        }
+    }
+
     override fun getState(executor: Executor, environment: ExecutionEnvironment): RunProfileState =
         NostosRunProfileState(this, environment)
 
     override fun suggestedName(): String? {
+        if (binName.isNotBlank()) return binName
         if (scriptPath.isBlank()) return null
         return File(scriptPath).nameWithoutExtension
     }

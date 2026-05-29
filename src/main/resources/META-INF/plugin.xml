@@ -10,6 +10,19 @@
     ]]></description>
 
     <change-notes><![CDATA[
+    <b>0.2.1</b>
+    <ul>
+        <li>Inlay type hints from nostos-lsp</li>
+        <li>Hover documentation popup (Ctrl+Q) backed by nostos-lsp</li>
+        <li>Parameter info (signature help) when calling functions</li>
+        <li>Refactor &rarr; Rename wired to nostos-lsp</li>
+        <li>New Project wizard for scaffolding Nostos projects</li>
+        <li>New Nostos File action</li>
+        <li>Run <code>[[bin]]</code> entry points declared in nostos.toml</li>
+        <li>Live reload when .nos files change on disk</li>
+        <li>Progress reporting for long-running language server work</li>
+        <li>Friendlier parser error messages</li>
+    </ul>
     <b>0.2.0</b>
     <ul>
         <li>Live diagnostics via nostos-lsp integration</li>
@@ -61,6 +74,13 @@
         <lang.findUsagesProvider
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosFindUsagesProvider"/>
+        <lang.documentationProvider
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosLspDocumentationProvider"/>
+        <codeInsight.parameterInfo
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosLspParameterInfoHandler"/>
+        <renameHandler implementation="org.babelserver.intellijnostos.lsp.NostosLspRenameHandler"/>
         <completion.contributor
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosCompletionContributor"/>
@@ -90,11 +110,34 @@
         <externalAnnotator
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosSemanticHighlighter"/>
+        <codeInsight.declarativeInlayProvider
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.NostosInlayHintsProvider"
+            isEnabledByDefault="true"
+            group="TYPES_GROUP"
+            providerId="nostos.type.hints"
+            bundle="messages.NostosBundle"
+            nameKey="inlay.nostos.types.name"
+            descriptionKey="inlay.nostos.types.description"/>
         <!--suppress PluginXmlI18n -->
         <notificationGroup id="Nostos" displayType="BALLOON"/>
         <postStartupActivity
             implementation="org.babelserver.intellijnostos.lsp.NostosLspStartupActivity"/>
+        <newProjectWizard.generator
+            implementation="org.babelserver.intellijnostos.wizard.NostosNewProjectWizard"/>
         <projectViewNodeDecorator
             implementation="org.babelserver.intellijnostos.lsp.NostosFileStatusDecorator"/>
+        <internalFileTemplate name="Nostos File"/>
     </extensions>
+
+    <actions>
+        <action
+            id="Nostos.NewNostosFile"
+            class="org.babelserver.intellijnostos.NostosCreateFileAction"
+            text="Nostos File"
+            description="Create a new Nostos file"
+            icon="/icons/nostos.svg">
+            <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewDir"/>
+        </action>
+    </actions>
 </idea-plugin>

@@ -3,7 +3,6 @@ package org.babelserver.intellijnostos
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.ExternalAnnotator
 import com.intellij.lang.annotation.HighlightSeverity
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.util.TextRange
@@ -16,23 +15,32 @@ import java.util.concurrent.ConcurrentHashMap
 
 class NostosExternalAnnotator : ExternalAnnotator<NostosExternalAnnotator.Info, List<Diagnostic>>() {
 
-    private val log = Logger.getInstance(NostosExternalAnnotator::class.java)
-
-    data class Info(val filePath: String, val fileUri: String, val document: Document, val project: com.intellij.openapi.project.Project)
+    data class Info(
+        val filePath: String,
+        val fileUri: String,
+        val document: Document,
+        val project: com.intellij.openapi.project.Project,
+        /**
+         * Cache contents key. Including this makes `Info.equals` change whenever
+         * the LSP cache for this file changes, so IDEA's ExternalToolPass cannot
+         * short-circuit `doAnnotate` based on stale equality when diagnostics
+         * arrive without an accompanying document edit.
+         */
+        val diagnosticsKey: Int,
+    )
 
     override fun collectInformation(file: PsiFile, editor: Editor, hasErrors: Boolean): Info? {
         if (file !is NostosFile) return null
         val virtualFile = file.virtualFile ?: return null
         val uri = URI("file", "", virtualFile.path, null).toString()
-        return Info(virtualFile.path, uri, editor.document, file.project)
+        val diagnosticsKey = NostosDiagnosticsCache.cache[uri]?.hashCode() ?: 0
+        return Info(virtualFile.path, uri, editor.document, file.project, diagnosticsKey)
     }
 
     override fun doAnnotate(info: Info): List<Diagnostic> {
         val manager = NostosLspServerManager.getInstance(info.project)
         manager.startIfNeeded()
-        val result = NostosDiagnosticsCache.cache[info.fileUri] ?: emptyList()
-        log.info("doAnnotate: uri='${info.fileUri}', cached=${result.size}, cacheKeys=${NostosDiagnosticsCache.cache.keys}")
-        return result
+        return NostosDiagnosticsCache.cache[info.fileUri] ?: emptyList()
     }
 
     override fun apply(file: PsiFile, diagnostics: List<Diagnostic>, holder: AnnotationHolder) {
