@@ -1,7 +1,6 @@
 package org.babelserver.intellijnostos.lsp
 
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
-import com.intellij.codeInsight.daemon.impl.InlayHintsPassFactoryInternal
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.smartReadAction
 import com.intellij.openapi.project.Project
@@ -29,21 +28,12 @@ class NostosLspStartupActivity : ProjectActivity {
             firstDiagnostics.complete(Unit)
             NostosDiagnosticsCache.cache[params.uri] = params.diagnostics
 
-            // Force the daemon to re-run. The LSP changed the diagnostics
-            // without an accompanying editor edit, so document modification
-            // stamps are unchanged -- and a per-file restart(psiFile) is then
-            // gated out for any file analysed recently. A whole-daemon
-            // restart() ignores those per-file stamps and re-runs the external
-            // annotator (diagnostics) and inlay passes for all open files, so
-            // we no longer need to bump each file's PSI mod count by hand.
-            // forceHintsUpdateOnNextPass additionally clears the inlay pass's
-            // own modification-stamp cache so the next run re-queries our
-            // provider. That Internal class lives in
-            // com.intellij.codeInsight.daemon.impl; the platform exposes no
-            // equivalent on a non-impl surface for the current (imperative)
-            // InlayHintsProvider API.
+            // Re-run the daemon so the external annotator (diagnostics) and the
+            // declarative inlay pass pick up what the LSP just published. The
+            // diagnostics arrived without an editor edit, so a per-file restart
+            // would be gated out by the unchanged document mod-stamp; a
+            // whole-daemon restart() ignores those per-file stamps.
             ApplicationManager.getApplication().invokeLater {
-                InlayHintsPassFactoryInternal.Companion.forceHintsUpdateOnNextPass()
                 DaemonCodeAnalyzer.getInstance(project).restart()
             }
         }

@@ -110,9 +110,15 @@
         <externalAnnotator
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosSemanticHighlighter"/>
-        <codeInsight.inlayProvider
+        <codeInsight.declarativeInlayProvider
             language="Nostos"
-            implementationClass="org.babelserver.intellijnostos.NostosInlayHintsProvider"/>
+            implementationClass="org.babelserver.intellijnostos.NostosInlayHintsProvider"
+            isEnabledByDefault="true"
+            group="TYPES_GROUP"
+            providerId="nostos.type.hints"
+            bundle="messages.NostosBundle"
+            nameKey="inlay.nostos.types.name"
+            descriptionKey="inlay.nostos.types.description"/>
         <!--suppress PluginXmlI18n -->
         <notificationGroup id="Nostos" displayType="BALLOON"/>
         <postStartupActivity
