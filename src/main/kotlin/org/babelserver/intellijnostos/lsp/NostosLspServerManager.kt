@@ -109,8 +109,13 @@ class NostosLspServerManager(private val project: Project) : Disposable {
             launcher.startListening()
 
             val initParams = InitializeParams().apply {
-                @Suppress("DEPRECATION")
-                rootUri = rootDir?.let { File(it).toURI().toString() }
+                // nostos-lsp is single-root, so we hand it one folder. workspaceFolders
+                // replaces the deprecated rootUri; the server reads either, preferring
+                // rootUri and falling back to the first workspace folder.
+                workspaceFolders = rootDir?.let {
+                    val uri = File(it).toURI().toString()
+                    listOf(WorkspaceFolder(uri, File(it).name))
+                }
                 capabilities = ClientCapabilities().apply {
                     textDocument = TextDocumentClientCapabilities().apply {
                         synchronization = SynchronizationCapabilities().apply {

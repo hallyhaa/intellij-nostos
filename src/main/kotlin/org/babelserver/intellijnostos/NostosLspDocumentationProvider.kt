@@ -1,7 +1,3 @@
-// lsp4j's MarkedString is deprecated in favour of MarkupContent, but the LSP
-// spec still permits servers to send it, so we have to accept both shapes.
-@file:Suppress("DEPRECATION")
-
 package org.babelserver.intellijnostos
 
 import com.intellij.lang.documentation.AbstractDocumentationProvider
@@ -12,12 +8,10 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import org.babelserver.intellijnostos.lsp.NostosLspServerManager
 import org.eclipse.lsp4j.HoverParams
-import org.eclipse.lsp4j.MarkedString
 import org.eclipse.lsp4j.MarkupContent
 import org.eclipse.lsp4j.MarkupKind
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.TextDocumentIdentifier
-import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.html.HtmlGenerator
 import org.intellij.markdown.parser.MarkdownParser
@@ -28,7 +22,9 @@ import java.util.concurrent.TimeUnit
  * Surfaces nostos-lsp's hover information in IDEA's documentation popup
  * (Ctrl+Q and the mouse-over tooltip). Translates the PSI element under the
  * cursor into an LSP position, issues `textDocument/hover`, and renders the
- * returned `MarkupContent` or `MarkedString[]` as HTML.
+ * returned `MarkupContent` as HTML. nostos-lsp always replies with
+ * `MarkupContent` (Markdown), so the deprecated `MarkedString` shape that the
+ * LSP spec still permits is not handled.
  */
 class NostosLspDocumentationProvider : AbstractDocumentationProvider() {
 
@@ -70,22 +66,11 @@ class NostosLspDocumentationProvider : AbstractDocumentationProvider() {
             return null
         }
 
-        return contentsToHtml(hover.contents)
+        return markupToHtml(hover.contents?.right)
     }
 
-    private fun contentsToHtml(
-        contents: Either<List<Either<String, MarkedString>>, MarkupContent>?,
-    ): String? {
-        contents ?: return null
-        if (contents.isLeft) {
-            val parts = contents.left ?: return null
-            val body = parts.joinToString("\n") { part ->
-                if (part.isLeft) escapeHtml(part.left ?: "")
-                else escapeHtml(part.right?.value ?: "")
-            }
-            return body.ifBlank { null }?.let(::wrapDefinition)
-        }
-        val markup = contents.right ?: return null
+    private fun markupToHtml(markup: MarkupContent?): String? {
+        markup ?: return null
         val text = markup.value ?: return null
         if (text.isBlank()) return null
         return if (markup.kind == MarkupKind.MARKDOWN) {

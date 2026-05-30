@@ -34,7 +34,7 @@ class NostosLspStartupActivity : ProjectActivity {
             // would be gated out by the unchanged document mod-stamp; a
             // whole-daemon restart() ignores those per-file stamps.
             ApplicationManager.getApplication().invokeLater {
-                DaemonCodeAnalyzer.getInstance(project).restart()
+                DaemonCodeAnalyzer.getInstance(project).restart("Nostos LSP published diagnostics")
             }
         }
 
