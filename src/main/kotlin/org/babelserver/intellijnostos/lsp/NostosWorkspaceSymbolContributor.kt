@@ -1,3 +1,9 @@
+// lsp4j deprecated SymbolInformation in favour of WorkspaceSymbol, but
+// nostos-lsp's workspace/symbol handler still returns Vec<SymbolInformation>
+// (the Either.left shape), so the client must read it. Suppress here until the
+// server migrates to the WorkspaceSymbol response.
+@file:Suppress("DEPRECATION")
+
 package org.babelserver.intellijnostos.lsp
 
 import com.intellij.navigation.ChooseByNameContributor
