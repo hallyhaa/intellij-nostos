@@ -36,6 +36,14 @@ dependencies {
 
 kotlin {
     jvmToolchain(providers.gradleProperty("javaVersion").get().toInt())
+    compilerOptions {
+        // Emit real JVM default methods instead of Kotlin's delegating bridges.
+        // Without this, implementing an interface with a deprecated default method
+        // (ProjectViewNodeDecorator.decorate(PackageDependenciesNode, ...)) makes
+        // the compiler generate a bridge that calls that deprecated method, which
+        // the plugin verifier reports as a deprecated-API usage.
+        jvmDefault.set(org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode.NO_COMPATIBILITY)
+    }
 }
 
 intellijPlatform {
@@ -43,7 +51,9 @@ intellijPlatform {
         name = providers.gradleProperty("pluginName")
         version = providers.gradleProperty("pluginVersion")
         ideaVersion {
-            sinceBuild = "243"
+            // 253: DaemonCodeAnalyzer.restart(Object) — the non-deprecated restart
+            // overload we call in NostosLspStartupActivity — was introduced in 2025.3.
+            sinceBuild = "253"
         }
     }
     signing {

@@ -101,11 +101,12 @@ class NostosNewProjectWizardStep(parent: NewProjectWizardStep) : AbstractNewProj
      * excluded.
      */
     private fun createModule(project: Project, basePath: String, projectName: String) {
-        // The deprecation message points to UIWizardUtil#setupProjectFromBuilder, but
-        // that helper lives in intellij.platform.ide.impl.jar and is not exposed on the
-        // plugin compile classpath. Until JetBrains promotes it to the public API, the
-        // deprecated MODIFIABLE_MODULE_MODEL_KEY is the only documented hook for getting
-        // a module committed into the wizard's own ModifiableModuleModel.
+        // The deprecation points at AbstractNewProjectWizardBuilder.MODIFIABLE_MODULE_MODEL_KEY
+        // and UIWizardUtil#setupProjectFromBuilder, but both of those are marked
+        // @ApiStatus.Internal/@Obsolete and the plugin verifier flags them as internal-API
+        // usage. Until JetBrains exposes a public replacement, the deprecated (but
+        // public and stable since 243) key is the only safe documented hook for
+        // committing a module into the wizard's own ModifiableModuleModel.
         @Suppress("DEPRECATION")
         val moduleModel = context.getUserData(NewProjectWizardStep.MODIFIABLE_MODULE_MODEL_KEY) ?: return
         val moduleBuilder = EmptyModuleType.getInstance().createModuleBuilder()
