@@ -110,6 +110,15 @@
         <externalAnnotator
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosSemanticHighlighter"/>
+        <highlightUsagesHandlerFactory
+            implementation="org.babelserver.intellijnostos.lsp.NostosHighlightUsagesHandlerFactory"/>
+        <gotoSymbolContributor
+            implementation="org.babelserver.intellijnostos.lsp.NostosWorkspaceSymbolContributor"/>
+        <codeInsight.daemonBoundCodeVisionProvider
+            implementation="org.babelserver.intellijnostos.lsp.NostosReferencesCodeVisionProvider"/>
+        <callHierarchyProvider
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.lsp.NostosCallHierarchyProvider"/>
         <codeInsight.declarativeInlayProvider
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosInlayHintsProvider"
