@@ -10,6 +10,15 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
  */
 class NostosLspFeaturesNoServerTest : BasePlatformTestCase() {
 
+    override fun setUp() {
+        super.setUp()
+        // The light fixture shares one project across test classes, and other
+        // tests (e.g. doAnnotate-based ones) call startIfNeeded, which on a
+        // machine with nostos installed actually launches the server. Guarantee
+        // the precondition so "without a server" really holds here.
+        NostosLspServerManager.getInstance(project).stop()
+    }
+
     fun testWorkspaceSymbolReturnsEmptyWithoutServer() {
         val contributor = NostosWorkspaceSymbolContributor()
         val names = contributor.getNames(project, false)

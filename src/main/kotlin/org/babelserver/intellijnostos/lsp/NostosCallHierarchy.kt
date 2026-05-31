@@ -9,6 +9,7 @@ import com.intellij.ide.util.treeView.NodeDescriptor
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
@@ -108,6 +109,8 @@ private class NostosCallerTreeStructure(
             server.textDocumentService
                 .callHierarchyIncomingCalls(CallHierarchyIncomingCallsParams(item))
                 .get(CALL_HIERARCHY_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } catch (e: ProcessCanceledException) {
+            throw e
         } catch (e: Exception) {
             logger.debug("incomingCalls failed", e)
             null
@@ -134,6 +137,8 @@ private class NostosCalleeTreeStructure(
             server.textDocumentService
                 .callHierarchyOutgoingCalls(CallHierarchyOutgoingCallsParams(item))
                 .get(CALL_HIERARCHY_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } catch (e: ProcessCanceledException) {
+            throw e
         } catch (e: Exception) {
             logger.debug("outgoingCalls failed", e)
             null
@@ -155,12 +160,14 @@ private fun prepareItem(project: Project, element: PsiElement): CallHierarchyIte
     val offset = element.textRange.startOffset
     val line = document.getLineNumber(offset)
     val character = offset - document.getLineStartOffset(line)
-    val uri = URI("file", "", virtualFile.path, null).toString()
+    val uri = NostosLspUri.of(virtualFile)
     return try {
         server.textDocumentService
             .prepareCallHierarchy(CallHierarchyPrepareParams(TextDocumentIdentifier(uri), Position(line, character)))
             .get(CALL_HIERARCHY_TIMEOUT_MS, TimeUnit.MILLISECONDS)
             ?.firstOrNull()
+    } catch (e: ProcessCanceledException) {
+        throw e
     } catch (e: Exception) {
         logger.debug("prepareCallHierarchy failed", e)
         null

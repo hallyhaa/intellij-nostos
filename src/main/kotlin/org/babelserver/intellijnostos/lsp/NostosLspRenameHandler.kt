@@ -4,22 +4,16 @@ import com.intellij.codeInsight.hint.HintManager
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.command.CommandProcessor
-import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
-import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.ui.InputValidator
 import com.intellij.openapi.ui.Messages
-import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.refactoring.rename.RenameHandler
@@ -31,11 +25,9 @@ import org.eclipse.lsp4j.PrepareRenameResult
 import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.RenameParams
 import org.eclipse.lsp4j.TextDocumentIdentifier
-import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.WorkspaceEdit
 import org.eclipse.lsp4j.jsonrpc.messages.Either3
 import org.eclipse.lsp4j.services.LanguageServer
-import java.net.URI
 import java.util.concurrent.TimeUnit
 
 /**
@@ -90,7 +82,7 @@ class NostosLspRenameHandler : RenameHandler {
         val caret = editor.caretModel.offset
         val line = document.getLineNumber(caret)
         val character = caret - document.getLineStartOffset(line)
-        val uri = URI("file", "", virtualFile.path, null).toString()
+        val uri = NostosLspUri.of(virtualFile)
         val position = Position(line, character)
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Preparing rename…", true) {
@@ -128,7 +120,7 @@ class NostosLspRenameHandler : RenameHandler {
         server: LanguageServer,
         prepared: Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>?,
     ) {
-        val (range, placeholder) = extractRangeAndPlaceholder(prepared, document, caret) ?: run {
+        val (_, placeholder) = extractRangeAndPlaceholder(prepared, document, caret) ?: run {
             showError(editor, "Cannot rename element at caret")
             return
         }
@@ -165,92 +157,16 @@ class NostosLspRenameHandler : RenameHandler {
                         showError(editor, "Rename failed: language server returned no edit")
                         return@invokeLater
                     }
-                    applyWorkspaceEdit(project, edit, "Rename '$placeholder' to '$newName'", editor, range)
+                    // Apply through the shared utility so rename, code actions
+                    // and any future edit-driven feature share one implementation
+                    // of the documentChanges/changes precedence, descending-order
+                    // application, in-content guard, and position clamping.
+                    if (!NostosWorkspaceEdits.apply(project, edit, "Rename '$placeholder' to '$newName'")) {
+                        showError(editor, "Rename: nothing to change")
+                    }
                 }
             }
         })
-    }
-
-    private fun applyWorkspaceEdit(
-        project: Project,
-        edit: WorkspaceEdit,
-        commandName: String,
-        editor: Editor,
-        @Suppress("UNUSED_PARAMETER") originalRange: Range,
-    ) {
-        val documentChanges = edit.documentChanges
-        val perFileEdits: Map<String, List<TextEdit>> = edit.changes ?: emptyMap()
-        if (documentChanges.isNullOrEmpty() && perFileEdits.isEmpty()) {
-            showError(editor, "Rename: nothing to change")
-            return
-        }
-
-        CommandProcessor.getInstance().executeCommand(project, {
-            WriteCommandAction.runWriteCommandAction(project) {
-                // Per the LSP spec, a client that supports `documentChanges`
-                // must use it and ignore the legacy `changes` map. Some servers
-                // populate both with identical edits for backward compatibility;
-                // applying both would corrupt the file by editing it twice.
-                if (!documentChanges.isNullOrEmpty()) {
-                    for (entry in documentChanges) {
-                        if (entry.isLeft) {
-                            val textDocEdit = entry.left
-                            val edits = textDocEdit.edits ?: continue
-                            applyEditsToFile(project, textDocEdit.textDocument.uri, edits)
-                        }
-                        // Resource operations (create/rename/delete files) are
-                        // not in scope for rename refactoring.
-                    }
-                } else {
-                    for ((uri, edits) in perFileEdits) {
-                        applyEditsToFile(project, uri, edits)
-                    }
-                }
-            }
-        }, commandName, null)
-    }
-
-    private fun applyEditsToFile(project: Project, uri: String, edits: List<TextEdit>) {
-        val vfile = resolveFile(uri) ?: run {
-            log.warn("rename: could not resolve $uri")
-            return
-        }
-        // Only edit files that belong to this project. The server returns the
-        // URIs to change; constraining them to project content stops a buggy
-        // or malicious server from rewriting arbitrary files on disk.
-        if (!ProjectFileIndex.getInstance(project).isInContent(vfile)) {
-            log.warn("rename: refusing to edit file outside project content: $uri")
-            return
-        }
-        val document = FileDocumentManager.getInstance().getDocument(vfile) ?: run {
-            log.warn("rename: no document for $uri")
-            return
-        }
-        // Apply edits in descending range order so that earlier offsets remain
-        // valid while later edits are applied — a LSP convention.
-        val sorted = edits.sortedWith(
-            compareByDescending<TextEdit> { it.range.start.line }
-                .thenByDescending { it.range.start.character },
-        )
-        for (e in sorted) {
-            val start = lspPositionToOffset(document, e.range.start.line, e.range.start.character)
-            val end = lspPositionToOffset(document, e.range.end.line, e.range.end.character)
-            if (start < 0 || end < start) continue
-            document.replaceString(start, end, e.newText ?: "")
-        }
-        PsiDocumentManager.getInstance(project).commitDocument(document)
-    }
-
-    private fun resolveFile(uri: String): com.intellij.openapi.vfs.VirtualFile? {
-        val path = URI(uri).path ?: return null
-        return LocalFileSystem.getInstance().findFileByPath(path)
-    }
-
-    private fun lspPositionToOffset(document: Document, line: Int, character: Int): Int {
-        if (line < 0 || line >= document.lineCount) return -1
-        val lineStart = document.getLineStartOffset(line)
-        val lineEnd = document.getLineEndOffset(line)
-        return (lineStart + character).coerceAtMost(lineEnd)
     }
 
     private fun extractRangeAndPlaceholder(
@@ -295,8 +211,8 @@ class NostosLspRenameHandler : RenameHandler {
     private fun isIdentifierChar(c: Char): Boolean = c.isLetterOrDigit() || c == '_'
 
     private fun textForRange(document: Document, range: Range): String {
-        val start = lspPositionToOffset(document, range.start.line, range.start.character)
-        val end = lspPositionToOffset(document, range.end.line, range.end.character)
+        val start = NostosWorkspaceEdits.lspPositionToOffset(document, range.start.line, range.start.character)
+        val end = NostosWorkspaceEdits.lspPositionToOffset(document, range.end.line, range.end.character)
         if (start < 0 || end < start) return ""
         return document.charsSequence.subSequence(start, end).toString()
     }

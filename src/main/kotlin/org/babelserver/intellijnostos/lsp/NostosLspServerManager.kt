@@ -5,6 +5,7 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.util.Version
@@ -27,6 +28,8 @@ import com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileDeleteEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileMoveEvent
+import com.intellij.util.Alarm
+import org.babelserver.intellijnostos.NostosDiagnosticsCache
 import org.babelserver.intellijnostos.NostosFileType
 import org.babelserver.intellijnostos.settings.NostosAppSettings
 import org.babelserver.intellijnostos.settings.NostosSettingsConfigurable
@@ -34,7 +37,7 @@ import org.eclipse.lsp4j.*
 import org.eclipse.lsp4j.launch.LSPLauncher
 import org.eclipse.lsp4j.services.LanguageServer
 import java.io.File
-import java.net.URI
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 @Service(Service.Level.PROJECT)
@@ -46,6 +49,18 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     private var client: NostosLspClient? = null
     private var initialized = false
     private val openFiles = mutableSetOf<String>()
+
+    /** Per-document LSP version, keyed by URI. Reset when the server stops. */
+    private val documentVersions = ConcurrentHashMap<String, Int>()
+
+    /**
+     * Documents edited since the last flush, keyed by file. The full text is
+     * read lazily at flush time (not per keystroke) and sent once per quiet
+     * window, so a burst of typing collapses into a single didChange instead of
+     * one full-document round-trip per character.
+     */
+    private val pendingChanges = ConcurrentHashMap<VirtualFile, Document>()
+    private val changeDebounce by lazy { Alarm(Alarm.ThreadToUse.SWING_THREAD, this) }
 
     /** Workspace root last handed to nostos-lsp, reused when restarting. */
     private var lastLspRoot: String? = null
@@ -113,8 +128,9 @@ class NostosLspServerManager(private val project: Project) : Disposable {
                 // replaces the deprecated rootUri; the server reads either, preferring
                 // rootUri and falling back to the first workspace folder.
                 workspaceFolders = rootDir?.let {
-                    val uri = File(it).toURI().toString()
-                    listOf(WorkspaceFolder(uri, File(it).name))
+                    // Same URI spelling as the per-file requests, so a server
+                    // that prefix-matches document URIs against the root agrees.
+                    listOf(WorkspaceFolder(NostosLspUri.of(it), File(it).name))
                 }
                 capabilities = ClientCapabilities().apply {
                     textDocument = TextDocumentClientCapabilities().apply {
@@ -185,10 +201,15 @@ class NostosLspServerManager(private val project: Project) : Disposable {
 
         EditorFactory.getInstance().eventMulticaster.addDocumentListener(object : DocumentListener {
             override fun documentChanged(event: DocumentEvent) {
+                if (!initialized) return
                 val file = FileDocumentManager.getInstance().getFile(event.document) ?: return
-                if (file.fileType == NostosFileType) {
-                    didChange(file, event.document.text)
-                }
+                if (file.fileType != NostosFileType) return
+                // Record the document and debounce; the text is read once at
+                // flush, not copied on every keystroke. didChange's own
+                // openFiles guard filters out files this server doesn't own.
+                pendingChanges[file] = event.document
+                changeDebounce.cancelAllRequests()
+                changeDebounce.addRequest(::flushPendingChanges, CHANGE_DEBOUNCE_MS)
             }
         }, disposable)
 
@@ -220,7 +241,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     private fun VFileEvent.toWatchedFileEvent(): FileEvent? {
         if (!path.endsWith(".nos")) return null
         if (!isUnderWorkspaceRoot(path)) return null
-        val uri = URI("file", "", path, null).toString()
+        val uri = NostosLspUri.of(path)
         if (uri in openFiles) return null
         val type = when (this) {
             is VFileCreateEvent, is VFileCopyEvent -> FileChangeType.Created
@@ -252,6 +273,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
         val text = ApplicationManager.getApplication().runReadAction<String?> {
             FileDocumentManager.getInstance().getDocument(file)?.text
         } ?: return
+        documentVersions[uri] = 1
         server?.textDocumentService?.didOpen(DidOpenTextDocumentParams(
             TextDocumentItem(uri, "nostos", 1, text)
         ))
@@ -260,18 +282,31 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     fun didClose(file: VirtualFile) {
         val uri = file.toUri()
         if (!initialized || !openFiles.remove(uri)) return
+        documentVersions.remove(uri)
+        pendingChanges.remove(file)
         server?.textDocumentService?.didClose(DidCloseTextDocumentParams(
             TextDocumentIdentifier(uri)
         ))
     }
 
-    private var version = 2
+    /** Sends the latest text of every document edited since the last flush. */
+    private fun flushPendingChanges() {
+        if (pendingChanges.isEmpty()) return
+        val snapshot = HashMap(pendingChanges)
+        pendingChanges.clear()
+        for ((file, document) in snapshot) {
+            didChange(file, document.text)
+        }
+    }
 
     fun didChange(file: VirtualFile, content: String) {
         val uri = file.toUri()
         if (!initialized || uri !in openFiles) return
+        // Per-document monotonic version: LSP wants the version to increase per
+        // URI, not across all files from one shared counter.
+        val nextVersion = documentVersions.merge(uri, 1) { old, _ -> old + 1 } ?: 1
         server?.textDocumentService?.didChange(DidChangeTextDocumentParams(
-            VersionedTextDocumentIdentifier(uri, version++),
+            VersionedTextDocumentIdentifier(uri, nextVersion),
             listOf(TextDocumentContentChangeEvent(content))
         ))
     }
@@ -297,9 +332,13 @@ class NostosLspServerManager(private val project: Project) : Disposable {
         startIfNeeded(lspRoot = newRoot)
     }
 
+    /** Stops the server if running. Exposed for deterministic test teardown. */
+    internal fun stop() = stopServer()
+
     private fun stopServer() {
         listenersDisposable?.let { Disposer.dispose(it) }
         listenersDisposable = null
+        changeDebounce.cancelAllRequests()
         client?.progressTracker?.cancelAll()
         try {
             server?.shutdown()?.get(5, TimeUnit.SECONDS)
@@ -313,16 +352,22 @@ class NostosLspServerManager(private val project: Project) : Disposable {
         client = null
         initialized = false
         openFiles.clear()
+        documentVersions.clear()
+        pendingChanges.clear()
     }
 
     override fun dispose() {
         stopServer()
+        // Drop this project's diagnostics on project close. (Not on a plain
+        // stop/restart: the next server publishes fresh diagnostics anyway, and
+        // clearing there would race with code that seeds the cache directly.)
+        NostosDiagnosticsCache.getInstance(project).cache.clear()
     }
 
     private fun checkMinimumVersion(): Boolean {
-        val versionStr = NostosAppSettings.getVersion(
-            NostosAppSettings.getInstance().getEffectiveNostosPath()
-        ) ?: return true // Can't determine version — proceed optimistically
+        val settings = NostosAppSettings.getInstance()
+        val versionStr = settings.cachedVersion(settings.getEffectiveNostosPath())
+            ?: return true // Can't determine version — proceed optimistically
 
         val version = parseNostosVersion(versionStr)
         if (version != null && version < MIN_VERSION) {
@@ -341,6 +386,9 @@ class NostosLspServerManager(private val project: Project) : Disposable {
 
     companion object {
         internal val MIN_VERSION = Version(0, 2, 18)
+
+        /** Quiet window before a burst of edits is flushed to the server. */
+        private const val CHANGE_DEBOUNCE_MS = 150
 
         private const val NOSTOS_INSTALL_URL = "https://heynostos.tech"
 
@@ -365,7 +413,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
         val settings = NostosAppSettings.getInstance()
         return NostosExecutableResolver(
             effectiveNostosPath = { settings.getEffectiveNostosPath() },
-            detectNostos = { NostosAppSettings.detectNostos() },
+            detectNostos = { settings.cachedDetectNostos() },
             isExecutable = { it.canExecute() },
         ).resolve()
     }
@@ -402,4 +450,4 @@ class NostosLspServerManager(private val project: Project) : Disposable {
 
 }
 
-private fun VirtualFile.toUri(): String = URI("file", "", this.path, null).toString()
+private fun VirtualFile.toUri(): String = NostosLspUri.of(this)

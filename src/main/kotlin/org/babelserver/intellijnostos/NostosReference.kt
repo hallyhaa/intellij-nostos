@@ -3,8 +3,7 @@ package org.babelserver.intellijnostos
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
-import com.intellij.psi.search.FileTypeIndex
-import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.impl.source.resolve.ResolveCache
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.PlatformIcons
 import org.babelserver.intellijnostos.psi.*
@@ -17,9 +16,14 @@ import org.babelserver.intellijnostos.psi.*
 class NostosReference(element: PsiElement, private val nameText: String) :
     PsiReferenceBase<PsiElement>(element, TextRange(0, element.textLength)) {
 
-    override fun resolve(): PsiElement? {
-        return resolveLocal(element) ?: resolveInFile(element.containingFile) ?: resolveAcrossFiles()
-    }
+    override fun resolve(): PsiElement? =
+        // Cache the resolution per reference; it is invalidated automatically on
+        // PSI change. resolve() is called many times per highlighting pass and
+        // per keystroke, and doResolve() can scan every file in the project.
+        ResolveCache.getInstance(element.project).resolveWithCaching(this, RESOLVER, false, false)
+
+    private fun doResolve(): PsiElement? =
+        resolveLocal(element) ?: resolveInFile(element.containingFile) ?: resolveAcrossFiles()
 
     override fun getVariants(): Array<Any> {
         val result = mutableListOf<LookupElementBuilder>()
@@ -50,14 +54,10 @@ class NostosReference(element: PsiElement, private val nameText: String) :
         // File-level declarations
         collectFileVariants(element.containingFile, ::addNamed)
 
-        // Cross-file declarations
-        val project = element.project
-        val scope = GlobalSearchScope.projectScope(project)
-        val thisFile = element.containingFile.virtualFile
-        val psiManager = PsiManager.getInstance(project)
-        for (vFile in FileTypeIndex.getFiles(NostosFileType, scope)) {
-            if (vFile == thisFile) continue
-            val psiFile = psiManager.findFile(vFile) ?: continue
+        // Cross-file declarations (cached project-wide .nos file list)
+        val thisFile = element.containingFile
+        for (psiFile in NostosResolveSupport.projectNosFiles(element.project)) {
+            if (psiFile == thisFile) continue
             collectFileVariants(psiFile, ::addNamed)
         }
 
@@ -294,19 +294,18 @@ class NostosReference(element: PsiElement, private val nameText: String) :
     }
 
     /**
-     * Cross-file resolution: scan all .nos files in the project.
+     * Cross-file resolution: scan all .nos files in the project (cached list).
      */
     private fun resolveAcrossFiles(): PsiElement? {
-        val project = element.project
-        val scope = GlobalSearchScope.projectScope(project)
-        val psiManager = PsiManager.getInstance(project)
-        val thisFile = element.containingFile.virtualFile
-
-        for (vFile in FileTypeIndex.getFiles(NostosFileType, scope)) {
-            if (vFile == thisFile) continue
-            val psiFile = psiManager.findFile(vFile) ?: continue
+        val thisFile = element.containingFile
+        for (psiFile in NostosResolveSupport.projectNosFiles(element.project)) {
+            if (psiFile == thisFile) continue
             resolveInFile(psiFile)?.let { return it }
         }
         return null
+    }
+
+    private companion object {
+        private val RESOLVER = ResolveCache.Resolver { ref, _ -> (ref as NostosReference).doResolve() }
     }
 }

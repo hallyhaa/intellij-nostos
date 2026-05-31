@@ -41,15 +41,26 @@ internal class NostosLspProgressTracker(private val project: Project) {
             false,
         ) {
             override fun run(indicator: ProgressIndicator) {
+                indicator.text = effectiveTitle
+                var lastMessage: String? = null
+                var lastPercentage: Int? = -1 // sentinel distinct from any real value or null
                 while (!handle.done.isDone) {
-                    indicator.text = effectiveTitle
-                    indicator.text2 = handle.message.get() ?: ""
+                    // Only touch the indicator when something changed; the server
+                    // streams reports sporadically, so most poll ticks are no-ops.
+                    val message = handle.message.get() ?: ""
+                    if (message != lastMessage) {
+                        indicator.text2 = message
+                        lastMessage = message
+                    }
                     val pct = handle.percentage.get()
-                    if (pct != null) {
-                        indicator.isIndeterminate = false
-                        indicator.fraction = pct / 100.0
-                    } else {
-                        indicator.isIndeterminate = true
+                    if (pct != lastPercentage) {
+                        if (pct != null) {
+                            indicator.isIndeterminate = false
+                            indicator.fraction = pct / 100.0
+                        } else {
+                            indicator.isIndeterminate = true
+                        }
+                        lastPercentage = pct
                     }
                     try {
                         Thread.sleep(POLL_INTERVAL_MS)

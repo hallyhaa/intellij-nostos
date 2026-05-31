@@ -11,6 +11,7 @@ import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import org.babelserver.intellijnostos.lsp.NostosLspServerManager
+import org.babelserver.intellijnostos.lsp.NostosLspUri
 import org.eclipse.lsp4j.ParameterInformation
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.SignatureHelp
@@ -19,7 +20,6 @@ import org.eclipse.lsp4j.SignatureInformation
 import org.eclipse.lsp4j.TextDocumentIdentifier
 import org.eclipse.lsp4j.jsonrpc.messages.Either
 import org.eclipse.lsp4j.jsonrpc.messages.Tuple
-import java.net.URI
 import java.util.concurrent.TimeUnit
 
 /**
@@ -206,7 +206,7 @@ class NostosLspParameterInfoHandler : ParameterInfoHandler<PsiElement, Signature
         val line = document.getLineNumber(offset)
         val character = offset - document.getLineStartOffset(line)
         val params = SignatureHelpParams().apply {
-            textDocument = TextDocumentIdentifier(URI("file", "", virtualFile.path, null).toString())
+            textDocument = TextDocumentIdentifier(NostosLspUri.of(virtualFile))
             position = Position(line, character)
         }
         return try {

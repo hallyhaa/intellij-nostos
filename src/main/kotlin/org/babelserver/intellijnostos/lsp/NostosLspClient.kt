@@ -22,9 +22,14 @@ class NostosLspClient(private val project: Project) : LanguageClient {
     }
 
     override fun publishDiagnostics(diagnostics: PublishDiagnosticsParams) {
-        log.info("Received ${diagnostics.diagnostics.size} diagnostics for ${diagnostics.uri}")
-        for (d in diagnostics.diagnostics) {
-            log.info("  [${d.severity}] ${d.range.start.line}:${d.range.start.character}-${d.range.end.line}:${d.range.end.character} ${d.message}")
+        // Per-diagnostic detail is debug-only: at INFO it formats and writes one
+        // line per diagnostic on every publish (i.e. on every edit), which is
+        // real string/IO work on the LSP read thread.
+        if (log.isDebugEnabled) {
+            log.debug("Received ${diagnostics.diagnostics.size} diagnostics for ${diagnostics.uri}")
+            for (d in diagnostics.diagnostics) {
+                log.debug("  [${d.severity}] ${d.range.start.line}:${d.range.start.character}-${d.range.end.line}:${d.range.end.character} ${d.message}")
+            }
         }
         diagnosticsHandler?.invoke(diagnostics)
     }
@@ -45,10 +50,13 @@ class NostosLspClient(private val project: Project) : LanguageClient {
             val status = obj["status"]?.asString ?: return@mapNotNull null
             path to status
         }
-        log.info("File status update: ${statuses.size} files")
-        NostosFileStatusCache.updateStatuses(statuses)
-        ApplicationManager.getApplication().invokeLater {
-            ProjectView.getInstance(project).refresh()
+        log.debug("File status update: ${statuses.size} files")
+        // Only repaint the project tree when the statuses actually changed; a
+        // full ProjectView.refresh() on every notification is wasteful.
+        if (NostosFileStatusCache.getInstance(project).updateStatuses(statuses)) {
+            ApplicationManager.getApplication().invokeLater {
+                ProjectView.getInstance(project).refresh()
+            }
         }
     }
 
