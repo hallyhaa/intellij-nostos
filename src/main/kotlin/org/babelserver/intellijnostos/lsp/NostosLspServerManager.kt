@@ -284,10 +284,14 @@ class NostosLspServerManager(private val project: Project) : Disposable {
 
     fun didOpen(file: VirtualFile) {
         val uri = file.toUri()
-        if (!initialized || !openFiles.add(uri)) return
+        if (!initialized || uri in openFiles) return
+        // Read the text BEFORE marking the file open: if there's no document we
+        // must not leave the URI in openFiles, or a later didChange/didClose
+        // would be sent for a document the server never received a didOpen for.
         val text = ApplicationManager.getApplication().runReadAction<String?> {
             FileDocumentManager.getInstance().getDocument(file)?.text
         } ?: return
+        openFiles.add(uri)
         documentVersions[uri] = 1
         server?.textDocumentService?.didOpen(DidOpenTextDocumentParams(
             TextDocumentItem(uri, "nostos", 1, text)

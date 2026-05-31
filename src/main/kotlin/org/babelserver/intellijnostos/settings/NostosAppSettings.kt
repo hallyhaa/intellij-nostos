@@ -58,11 +58,22 @@ class NostosAppSettings : PersistentStateComponent<NostosAppSettings.State> {
         return detectedPath
     }
 
-    /** Cached form of [getVersion] — avoids re-spawning `nostos --version`. */
-    fun cachedVersion(nostosPath: String): String? =
-        versionCache[nostosPath] ?: getVersion(nostosPath)?.also { versionCache[nostosPath] = it }
+    /**
+     * Cached form of [getVersion] — avoids re-spawning `nostos --version`.
+     * Failures are negative-cached (empty-string sentinel) so a repeatedly
+     * failing path is probed at most once per session, until [invalidateCaches].
+     */
+    fun cachedVersion(nostosPath: String): String? {
+        versionCache[nostosPath]?.let { return it.ifEmpty { null } }
+        val version = getVersion(nostosPath)
+        versionCache[nostosPath] = version ?: NO_VERSION
+        return version
+    }
 
     companion object {
+        /** Sentinel stored when `nostos --version` failed, so it isn't retried. */
+        private const val NO_VERSION = ""
+
         fun getInstance(): NostosAppSettings =
             ApplicationManager.getApplication().getService(NostosAppSettings::class.java)
 

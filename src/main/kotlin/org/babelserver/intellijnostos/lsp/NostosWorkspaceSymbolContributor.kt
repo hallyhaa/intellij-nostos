@@ -43,7 +43,10 @@ class NostosWorkspaceSymbolContributor : ChooseByNameContributor {
     @Volatile
     private var cache: Cached? = null
 
-    private class Cached(val symbols: List<SymbolInformation>, val atNanos: Long)
+    // This contributor is an application-level singleton shared across projects,
+    // so the cache must record which project it was populated for and only be
+    // reused for that same project.
+    private class Cached(val project: Project, val symbols: List<SymbolInformation>, val atNanos: Long)
 
     override fun getNames(project: Project, includeNonProjectItems: Boolean): Array<String> {
         return allSymbols(project).mapNotNull { it.name }.distinct().toTypedArray()
@@ -65,9 +68,9 @@ class NostosWorkspaceSymbolContributor : ChooseByNameContributor {
     /** Every symbol the server knows, cached for [CACHE_TTL_NANOS] per session. */
     private fun allSymbols(project: Project): List<SymbolInformation> {
         val now = System.nanoTime()
-        cache?.let { if (now - it.atNanos < CACHE_TTL_NANOS) return it.symbols }
+        cache?.let { if (it.project == project && now - it.atNanos < CACHE_TTL_NANOS) return it.symbols }
         val fresh = query(project, "")
-        cache = Cached(fresh, now)
+        cache = Cached(project, fresh, now)
         return fresh
     }
 

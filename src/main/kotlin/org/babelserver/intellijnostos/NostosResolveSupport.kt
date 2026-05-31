@@ -1,5 +1,6 @@
 package org.babelserver.intellijnostos
 
+import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
@@ -21,12 +22,19 @@ import com.intellij.psi.util.PsiModificationTracker
 internal object NostosResolveSupport {
 
     /** Every `.nos` PSI file in [project], cached until the next PSI modification. */
-    fun projectNosFiles(project: Project): List<PsiFile> =
-        CachedValuesManager.getManager(project).getCachedValue(project) {
+    fun projectNosFiles(project: Project): List<PsiFile> {
+        // FileTypeIndex.getFiles throws IndexNotReadyException while the project
+        // is dumb (indexing), and resolve/completion run during indexing. Bail
+        // with an empty list instead — references just stay unresolved until
+        // indexing finishes. Returning before getCachedValue also avoids caching
+        // a transient-empty result that would persist past indexing.
+        if (DumbService.isDumb(project)) return emptyList()
+        return CachedValuesManager.getManager(project).getCachedValue(project) {
             val psiManager = PsiManager.getInstance(project)
             val files = FileTypeIndex
                 .getFiles(NostosFileType, GlobalSearchScope.projectScope(project))
                 .mapNotNull { psiManager.findFile(it) }
             CachedValueProvider.Result.create(files, PsiModificationTracker.MODIFICATION_COUNT)
         }
+    }
 }
