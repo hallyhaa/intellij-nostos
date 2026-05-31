@@ -20,10 +20,9 @@
     </ul>
     <b>0.2.1</b>
     <ul>
-        <li>Inlay type hints from nostos-lsp</li>
-        <li>Hover documentation popup (Ctrl+Q) backed by nostos-lsp</li>
+        <li>Inlay type hints</li>
+        <li>Hover documentation popup (Ctrl+Q)</li>
         <li>Parameter info (signature help) when calling functions</li>
-        <li>Refactor &rarr; Rename wired to nostos-lsp</li>
         <li>New Project wizard for scaffolding Nostos projects</li>
         <li>New Nostos File action</li>
         <li>Run <code>[[bin]]</code> entry points declared in nostos.toml</li>
@@ -33,7 +32,6 @@
     </ul>
     <b>0.2.0</b>
     <ul>
-        <li>Live diagnostics via nostos-lsp integration</li>
         <li>File status indicators in project tree for files with compile errors</li>
         <li>Run configurations for executing Nostos programs</li>
     </ul>
@@ -148,6 +146,7 @@
     </extensions>
 
     <actions>
+        <!--suppress PluginXmlI18n -->
         <action
             id="Nostos.NewNostosFile"
             class="org.babelserver.intellijnostos.NostosCreateFileAction"
