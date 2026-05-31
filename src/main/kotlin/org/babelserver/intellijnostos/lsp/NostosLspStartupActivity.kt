@@ -2,6 +2,7 @@ package org.babelserver.intellijnostos.lsp
 
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.readAction
 import com.intellij.openapi.application.smartReadAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
@@ -35,9 +36,10 @@ class NostosLspStartupActivity : ProjectActivity {
         // server manager so it is disposed with the project.
         val restartAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, manager)
 
+        val diagnosticsCache = NostosDiagnosticsCache.getInstance(project)
         manager.diagnosticsListener = { params ->
             firstDiagnostics.complete(Unit)
-            NostosDiagnosticsCache.cache[params.uri] = params.diagnostics
+            diagnosticsCache.cache[params.uri] = params.diagnostics
 
             // Re-run the daemon so the external annotator (diagnostics) and the
             // declarative inlay pass pick up what the LSP just published. The
@@ -56,29 +58,30 @@ class NostosLspStartupActivity : ProjectActivity {
         val basePath = project.basePath ?: return
         val manifests = NostosProjectRoot.findManifests(File(basePath))
 
-        // Locate every .nos file once; needed both to decide whether this is a
-        // Nostos project and, when there is no manifest, to pick where to offer
-        // generating one.
-        val nosFiles = smartReadAction(project) {
-            FileTypeIndex.getFiles(NostosFileType, GlobalSearchScope.projectScope(project))
-                .map { it.path }
-        }
-
-        // Start the language server only for Nostos projects: those with a
-        // nostos.toml, or with .nos files somewhere in the project.
-        val isNostosProject = manifests.isNotEmpty() || nosFiles.isNotEmpty()
-        if (!isNostosProject) return
-
+        // Common case: a nostos.toml exists, so we already know this is a
+        // Nostos project and where the root is — skip the index entirely. The
+        // (index-blocking) .nos enumeration is only needed for the rare
+        // no-manifest case below, so it is deferred to there.
         val lspRoot = NostosProjectRoot.choose(manifests, basePath)
 
-        // The project has .nos files but no manifest. The server still runs
-        // (rooted at lspRoot), but without nostos.toml it cannot resolve the
-        // project's dependencies. Offer to generate one — beside the user's
-        // sources rather than dumped at the project root — rather than writing
-        // it unprompted. A single notification per project, targeting one best
-        // directory, keeps this from nagging on projects with loose .nos files.
         if (manifests.isEmpty()) {
-            val sourceRoots = smartReadAction(project) {
+            // No manifest: enumerate .nos files. If there are none this is not a
+            // Nostos project and we stop without starting the server.
+            val nosFiles = smartReadAction(project) {
+                FileTypeIndex.getFiles(NostosFileType, GlobalSearchScope.projectScope(project))
+                    .map { it.path }
+            }
+            if (nosFiles.isEmpty()) return
+
+            // .nos files but no nostos.toml. The server still runs (rooted at
+            // lspRoot), but without a manifest it cannot resolve the project's
+            // dependencies. Offer to generate one — beside the user's sources
+            // rather than dumped at the project root — rather than writing it
+            // unprompted. A single notification per project, targeting one best
+            // directory, keeps this from nagging on loose .nos files. Source
+            // roots are model state, so a plain readAction suffices (no need to
+            // wait out indexing with smartReadAction).
+            val sourceRoots = readAction {
                 com.intellij.openapi.roots.ProjectRootManager.getInstance(project)
                     .contentSourceRoots.map { it.path }
             }

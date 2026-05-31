@@ -5,42 +5,74 @@ import com.intellij.lang.annotation.ExternalAnnotator
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.colors.TextAttributesKey
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFile
 import org.babelserver.intellijnostos.lsp.NostosLspServerManager
+import org.babelserver.intellijnostos.lsp.NostosLspUri
 import org.eclipse.lsp4j.SemanticTokensParams
 import org.eclipse.lsp4j.TextDocumentIdentifier
-import java.net.URI
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 class NostosSemanticHighlighter :
     ExternalAnnotator<NostosSemanticHighlighter.Info, List<NostosSemanticHighlighter.SemanticToken>>() {
 
-    data class Info(val fileUri: String, val document: com.intellij.openapi.editor.Document, val project: com.intellij.openapi.project.Project)
+    // Including the document's modification stamp makes `Info.equals` change
+    // whenever the file is edited, so IDEA's ExternalToolPass can short-circuit
+    // and skip re-running `doAnnotate` when the document is unchanged between
+    // daemon passes.
+    data class Info(
+        val fileUri: String,
+        val document: com.intellij.openapi.editor.Document,
+        val project: com.intellij.openapi.project.Project,
+        val docStamp: Long,
+    )
     data class SemanticToken(val startOffset: Int, val length: Int, val textAttributes: TextAttributesKey)
 
     override fun collectInformation(file: PsiFile, editor: Editor, hasErrors: Boolean): Info? {
         if (file !is NostosFile) return null
         val virtualFile = file.virtualFile ?: return null
-        val uri = URI("file", "", virtualFile.path, null).toString()
-        return Info(uri, editor.document, file.project)
+        val uri = NostosLspUri.of(virtualFile)
+        return Info(uri, editor.document, file.project, editor.document.modificationStamp)
     }
 
     override fun doAnnotate(info: Info): List<SemanticToken> {
+        // Semantic tokens depend on document content; cache by modification
+        // stamp so a daemon restart triggered by something else (e.g. a
+        // diagnostics publish) does not re-issue the whole-document request.
+        cache[info.fileUri]?.let { (stamp, tokens) -> if (stamp == info.docStamp) return tokens }
+
         val server = NostosLspServerManager.getInstance(info.project).activeServer ?: return emptyList()
 
         val response = try {
             server.textDocumentService
                 .semanticTokensFull(SemanticTokensParams(TextDocumentIdentifier(info.fileUri)))
-                .get(5, TimeUnit.SECONDS)
+                .get(REQUEST_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } catch (e: ProcessCanceledException) {
+            throw e
         } catch (_: Exception) {
             return emptyList()
         } ?: return emptyList()
 
-        val data = response.data ?: return emptyList()
+        val data = response.data ?: run {
+            cache[info.fileUri] = info.docStamp to emptyList()
+            return emptyList()
+        }
 
+        val tokens = decodeTokens(data, info.document)
+        cache[info.fileUri] = info.docStamp to tokens
+        return tokens
+    }
+
+    /**
+     * Decodes the LSP semantic-tokens relative encoding (5 ints per token:
+     * deltaLine, deltaStartChar, length, tokenType, modifiers) into absolute
+     * document offsets. Split out so the delta arithmetic can be unit-tested
+     * without a live server.
+     */
+    internal fun decodeTokens(data: List<Int>, document: com.intellij.openapi.editor.Document): List<SemanticToken> {
         val tokens = mutableListOf<SemanticToken>()
-        val document = info.document
         var currentLine = 0
         var currentChar = 0
 
@@ -80,6 +112,12 @@ class NostosSemanticHighlighter :
     }
 
     companion object {
+        private const val REQUEST_TIMEOUT_MS = 1_000L
+
+        // uri -> (document modification stamp, decoded tokens). Lets a daemon
+        // pass reuse the previous result when the document has not changed.
+        private val cache = ConcurrentHashMap<String, Pair<Long, List<SemanticToken>>>()
+
         private const val MOD_DECLARATION = 1 // bit 0
 
         // LSP token type indices (matching the legend from the server)

@@ -6,12 +6,12 @@ import com.intellij.codeInsight.codeVision.ui.model.TextCodeVisionEntry
 import com.intellij.codeInsight.hints.codeVision.DaemonBoundCodeVisionProvider
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFile
 import org.babelserver.intellijnostos.NostosFileType
 import org.eclipse.lsp4j.CodeLensParams
 import org.eclipse.lsp4j.TextDocumentIdentifier
-import java.net.URI
 import java.util.concurrent.TimeUnit
 
 /**
@@ -39,11 +39,13 @@ class NostosReferencesCodeVisionProvider : DaemonBoundCodeVisionProvider {
         val virtualFile = file.virtualFile ?: return emptyList()
         val server = NostosLspServerManager.getInstance(file.project).activeServer ?: return emptyList()
         val document = editor.document
-        val uri = URI("file", "", virtualFile.path, null).toString()
+        val uri = NostosLspUri.of(virtualFile)
 
         val lenses = try {
             server.textDocumentService.codeLens(CodeLensParams(TextDocumentIdentifier(uri)))
                 .get(CODE_LENS_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } catch (e: ProcessCanceledException) {
+            throw e
         } catch (e: Exception) {
             log.debug("codeLens request failed", e)
             null
@@ -63,6 +65,6 @@ class NostosReferencesCodeVisionProvider : DaemonBoundCodeVisionProvider {
 
     companion object {
         const val ID = "nostos.references"
-        private const val CODE_LENS_TIMEOUT_MS = 2_000L
+        private const val CODE_LENS_TIMEOUT_MS = 1_000L
     }
 }

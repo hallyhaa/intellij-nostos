@@ -4,6 +4,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.*
 import com.intellij.util.xmlb.XmlSerializerUtil
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 @Service(Service.Level.APP)
 @State(
@@ -18,19 +19,61 @@ class NostosAppSettings : PersistentStateComponent<NostosAppSettings.State> {
 
     private var myState = State()
 
+    // The nostos binary's location and version don't change within a session,
+    // but detecting them spawns `which`/`nostos --version` subprocesses. These
+    // were re-run on every project open (and twice for detection). Cache them;
+    // invalidate when settings change.
+    @Volatile
+    private var detectionComputed = false
+    @Volatile
+    private var detectedPath: String? = null
+    private val versionCache = ConcurrentHashMap<String, String>()
+
     override fun getState(): State = myState
 
     override fun loadState(state: State) {
         XmlSerializerUtil.copyBean(state, myState)
+        invalidateCaches()
     }
 
-    /** Returns the configured path, or auto-detects if not set. */
+    /** Clears cached detection/version results; call when the configured path changes. */
+    fun invalidateCaches() {
+        detectionComputed = false
+        detectedPath = null
+        versionCache.clear()
+    }
+
+    /** Returns the configured path, or auto-detects (cached) if not set. */
     fun getEffectiveNostosPath(): String {
         if (myState.nostosPath.isNotBlank()) return myState.nostosPath
-        return detectNostos() ?: "nostos"
+        return cachedDetectNostos() ?: "nostos"
+    }
+
+    /** Cached form of [detectNostos] — avoids re-spawning `which` on every call. */
+    fun cachedDetectNostos(): String? {
+        if (!detectionComputed) {
+            detectedPath = detectNostos()
+            detectionComputed = true
+        }
+        return detectedPath
+    }
+
+    /**
+     * Cached form of [getVersion] — avoids re-spawning `nostos --version`.
+     * Failures are negative-cached (empty-string sentinel) so a repeatedly
+     * failing path is probed at most once per session, until [invalidateCaches].
+     */
+    fun cachedVersion(nostosPath: String): String? {
+        versionCache[nostosPath]?.let { return it.ifEmpty { null } }
+        val version = getVersion(nostosPath)
+        versionCache[nostosPath] = version ?: NO_VERSION
+        return version
     }
 
     companion object {
+        /** Sentinel stored when `nostos --version` failed, so it isn't retried. */
+        private const val NO_VERSION = ""
+
         fun getInstance(): NostosAppSettings =
             ApplicationManager.getApplication().getService(NostosAppSettings::class.java)
 

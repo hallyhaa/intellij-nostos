@@ -7,6 +7,7 @@ import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import org.babelserver.intellijnostos.lsp.NostosLspServerManager
+import org.babelserver.intellijnostos.lsp.NostosLspUri
 import org.eclipse.lsp4j.HoverParams
 import org.eclipse.lsp4j.MarkupContent
 import org.eclipse.lsp4j.MarkupKind
@@ -15,7 +16,6 @@ import org.eclipse.lsp4j.TextDocumentIdentifier
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.html.HtmlGenerator
 import org.intellij.markdown.parser.MarkdownParser
-import java.net.URI
 import java.util.concurrent.TimeUnit
 
 /**
@@ -31,12 +31,14 @@ class NostosLspDocumentationProvider : AbstractDocumentationProvider() {
     private val log = Logger.getInstance(NostosLspDocumentationProvider::class.java)
 
     override fun generateDoc(element: PsiElement?, originalElement: PsiElement?): String? =
-        hoverHtml(originalElement ?: element)
+        hoverHtml(originalElement ?: element, REQUEST_TIMEOUT_MS)
 
+    // The mouse-over tooltip is more latency-sensitive than Ctrl+Q and is fine
+    // to drop if the server is slow, so it waits a shorter time.
     override fun getQuickNavigateInfo(element: PsiElement?, originalElement: PsiElement?): String? =
-        hoverHtml(originalElement ?: element)
+        hoverHtml(originalElement ?: element, QUICK_NAV_TIMEOUT_MS)
 
-    private fun hoverHtml(target: PsiElement?): String? {
+    private fun hoverHtml(target: PsiElement?, timeoutMs: Long): String? {
         target ?: return null
         val file = target.containingFile ?: return null
         if (file.fileType != NostosFileType) return null
@@ -51,13 +53,13 @@ class NostosLspDocumentationProvider : AbstractDocumentationProvider() {
         val character = offset - document.getLineStartOffset(line)
 
         val params = HoverParams().apply {
-            textDocument = TextDocumentIdentifier(URI("file", "", virtualFile.path, null).toString())
+            textDocument = TextDocumentIdentifier(NostosLspUri.of(virtualFile))
             position = Position(line, character)
         }
 
         val hover = try {
             server.textDocumentService.hover(params)
-                .get(REQUEST_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .get(timeoutMs, TimeUnit.MILLISECONDS)
                 ?: return null
         } catch (e: ProcessCanceledException) {
             throw e
@@ -110,5 +112,6 @@ class NostosLspDocumentationProvider : AbstractDocumentationProvider() {
 
     companion object {
         private const val REQUEST_TIMEOUT_MS = 1500L
+        private const val QUICK_NAV_TIMEOUT_MS = 600L
     }
 }

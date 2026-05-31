@@ -17,6 +17,7 @@
         <li>Go to Symbol across the project (Ctrl+Alt+Shift+N)</li>
         <li>"N references" CodeVision hint above function and type definitions</li>
         <li>Call Hierarchy (Ctrl+Alt+H)</li>
+        <li>Faster project startup and less lag while typing</li>
     </ul>
     <b>0.2.1</b>
     <ul>

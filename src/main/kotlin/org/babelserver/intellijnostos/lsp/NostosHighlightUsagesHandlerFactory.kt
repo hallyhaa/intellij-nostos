@@ -4,6 +4,7 @@ import com.intellij.codeInsight.highlighting.HighlightUsagesHandlerBase
 import com.intellij.codeInsight.highlighting.HighlightUsagesHandlerFactory
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -12,7 +13,6 @@ import org.babelserver.intellijnostos.NostosFileType
 import org.eclipse.lsp4j.DocumentHighlightParams
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.TextDocumentIdentifier
-import java.net.URI
 import java.util.concurrent.TimeUnit
 
 /**
@@ -63,12 +63,14 @@ private class NostosHighlightUsagesHandler(
         val caret = myEditor.caretModel.offset
         val line = document.getLineNumber(caret)
         val character = caret - document.getLineStartOffset(line)
-        val uri = URI("file", "", virtualFile.path, null).toString()
+        val uri = NostosLspUri.of(virtualFile)
 
         val highlights = try {
             server.textDocumentService
                 .documentHighlight(DocumentHighlightParams(TextDocumentIdentifier(uri), Position(line, character)))
                 .get(HIGHLIGHT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } catch (e: ProcessCanceledException) {
+            throw e
         } catch (e: Exception) {
             log.debug("documentHighlight request failed", e)
             null

@@ -9,6 +9,7 @@ import com.intellij.ide.util.treeView.NodeDescriptor
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
@@ -100,14 +101,18 @@ private class NostosCallerTreeStructure(
     element: PsiElement,
 ) : HierarchyTreeStructure(project, NostosCallNodeDescriptor(project, null, element, true)) {
 
+    private val itemCache = HashMap<PsiElement, CallHierarchyItem?>()
+
     override fun buildChildren(descriptor: HierarchyNodeDescriptor): Array<Any> {
         val element = descriptor.psiElement ?: return emptyArray()
-        val item = prepareItem(myProject, element) ?: return emptyArray()
+        val item = itemCache.getOrPut(element) { prepareItem(myProject, element) } ?: return emptyArray()
         val server = NostosLspServerManager.getInstance(myProject).activeServer ?: return emptyArray()
         val incoming: List<CallHierarchyIncomingCall> = try {
             server.textDocumentService
                 .callHierarchyIncomingCalls(CallHierarchyIncomingCallsParams(item))
                 .get(CALL_HIERARCHY_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } catch (e: ProcessCanceledException) {
+            throw e
         } catch (e: Exception) {
             logger.debug("incomingCalls failed", e)
             null
@@ -126,14 +131,18 @@ private class NostosCalleeTreeStructure(
     element: PsiElement,
 ) : HierarchyTreeStructure(project, NostosCallNodeDescriptor(project, null, element, true)) {
 
+    private val itemCache = HashMap<PsiElement, CallHierarchyItem?>()
+
     override fun buildChildren(descriptor: HierarchyNodeDescriptor): Array<Any> {
         val element = descriptor.psiElement ?: return emptyArray()
-        val item = prepareItem(myProject, element) ?: return emptyArray()
+        val item = itemCache.getOrPut(element) { prepareItem(myProject, element) } ?: return emptyArray()
         val server = NostosLspServerManager.getInstance(myProject).activeServer ?: return emptyArray()
         val outgoing: List<CallHierarchyOutgoingCall> = try {
             server.textDocumentService
                 .callHierarchyOutgoingCalls(CallHierarchyOutgoingCallsParams(item))
                 .get(CALL_HIERARCHY_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } catch (e: ProcessCanceledException) {
+            throw e
         } catch (e: Exception) {
             logger.debug("outgoingCalls failed", e)
             null
@@ -155,12 +164,14 @@ private fun prepareItem(project: Project, element: PsiElement): CallHierarchyIte
     val offset = element.textRange.startOffset
     val line = document.getLineNumber(offset)
     val character = offset - document.getLineStartOffset(line)
-    val uri = URI("file", "", virtualFile.path, null).toString()
+    val uri = NostosLspUri.of(virtualFile)
     return try {
         server.textDocumentService
             .prepareCallHierarchy(CallHierarchyPrepareParams(TextDocumentIdentifier(uri), Position(line, character)))
             .get(CALL_HIERARCHY_TIMEOUT_MS, TimeUnit.MILLISECONDS)
             ?.firstOrNull()
+    } catch (e: ProcessCanceledException) {
+        throw e
     } catch (e: Exception) {
         logger.debug("prepareCallHierarchy failed", e)
         null

@@ -12,6 +12,7 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.psi.PsiFile
 import org.babelserver.intellijnostos.lsp.NostosLspServerManager
+import org.babelserver.intellijnostos.lsp.NostosLspUri
 import org.eclipse.lsp4j.InlayHint
 import org.eclipse.lsp4j.InlayHintLabelPart
 import org.eclipse.lsp4j.InlayHintParams
@@ -19,7 +20,6 @@ import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.TextDocumentIdentifier
 import org.eclipse.lsp4j.jsonrpc.messages.Either
-import java.net.URI
 import java.util.concurrent.TimeUnit
 
 /**
@@ -52,7 +52,7 @@ class NostosInlayHintsProvider : InlayHintsProvider {
             val document = editor.document
 
             val params = InlayHintParams().apply {
-                textDocument = TextDocumentIdentifier(URI("file", "", virtualFile.path, null).toString())
+                textDocument = TextDocumentIdentifier(NostosLspUri.of(virtualFile))
                 // Whole-document range. End at the end of the last real line:
                 // LSP line numbers are 0-based, so Position(lineCount, 0) would
                 // point one line past the document and a strict server could

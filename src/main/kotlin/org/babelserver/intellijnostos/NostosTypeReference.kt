@@ -3,8 +3,7 @@ package org.babelserver.intellijnostos
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
-import com.intellij.psi.search.FileTypeIndex
-import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.impl.source.resolve.ResolveCache
 import com.intellij.util.PlatformIcons
 import org.babelserver.intellijnostos.psi.*
 
@@ -16,9 +15,11 @@ import org.babelserver.intellijnostos.psi.*
 class NostosTypeReference(element: PsiElement, private val nameText: String) :
     PsiReferenceBase<PsiElement>(element, TextRange(0, element.textLength)) {
 
-    override fun resolve(): PsiElement? {
-        return resolveInFile(element.containingFile) ?: resolveAcrossFiles()
-    }
+    override fun resolve(): PsiElement? =
+        ResolveCache.getInstance(element.project).resolveWithCaching(this, RESOLVER, false, false)
+
+    private fun doResolve(): PsiElement? =
+        resolveInFile(element.containingFile) ?: resolveAcrossFiles()
 
     override fun getVariants(): Array<Any> {
         val result = mutableListOf<LookupElementBuilder>()
@@ -32,13 +33,9 @@ class NostosTypeReference(element: PsiElement, private val nameText: String) :
 
         collectTypeVariants(element.containingFile, ::add)
 
-        val project = element.project
-        val scope = GlobalSearchScope.projectScope(project)
-        val thisFile = element.containingFile.virtualFile
-        val psiManager = PsiManager.getInstance(project)
-        for (vFile in FileTypeIndex.getFiles(NostosFileType, scope)) {
-            if (vFile == thisFile) continue
-            val psiFile = psiManager.findFile(vFile) ?: continue
+        val thisFile = element.containingFile
+        for (psiFile in NostosResolveSupport.projectNosFiles(element.project)) {
+            if (psiFile == thisFile) continue
             collectTypeVariants(psiFile, ::add)
         }
 
@@ -130,16 +127,15 @@ class NostosTypeReference(element: PsiElement, private val nameText: String) :
     }
 
     private fun resolveAcrossFiles(): PsiElement? {
-        val project = element.project
-        val scope = GlobalSearchScope.projectScope(project)
-        val psiManager = PsiManager.getInstance(project)
-        val thisFile = element.containingFile.virtualFile
-
-        for (vFile in FileTypeIndex.getFiles(NostosFileType, scope)) {
-            if (vFile == thisFile) continue
-            val psiFile = psiManager.findFile(vFile) ?: continue
+        val thisFile = element.containingFile
+        for (psiFile in NostosResolveSupport.projectNosFiles(element.project)) {
+            if (psiFile == thisFile) continue
             resolveInFile(psiFile)?.let { return it }
         }
         return null
+    }
+
+    private companion object {
+        private val RESOLVER = ResolveCache.Resolver { ref, _ -> (ref as NostosTypeReference).doResolve() }
     }
 }

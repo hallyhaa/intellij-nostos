@@ -3,15 +3,17 @@ package org.babelserver.intellijnostos
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.ExternalAnnotator
 import com.intellij.lang.annotation.HighlightSeverity
+import com.intellij.openapi.components.Service
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFile
 import org.babelserver.intellijnostos.lsp.NostosCodeActionQuickFix
 import org.babelserver.intellijnostos.lsp.NostosLspServerManager
+import org.babelserver.intellijnostos.lsp.NostosLspUri
 import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.DiagnosticSeverity
-import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 
 class NostosExternalAnnotator : ExternalAnnotator<NostosExternalAnnotator.Info, List<Diagnostic>>() {
@@ -33,8 +35,8 @@ class NostosExternalAnnotator : ExternalAnnotator<NostosExternalAnnotator.Info, 
     override fun collectInformation(file: PsiFile, editor: Editor, hasErrors: Boolean): Info? {
         if (file !is NostosFile) return null
         val virtualFile = file.virtualFile ?: return null
-        val uri = URI("file", "", virtualFile.path, null).toString()
-        val diagnosticsKey = NostosDiagnosticsCache.cache[uri]?.hashCode() ?: 0
+        val uri = NostosLspUri.of(virtualFile)
+        val diagnosticsKey = NostosDiagnosticsCache.getInstance(file.project).cache[uri]?.hashCode() ?: 0
         return Info(virtualFile.path, uri, editor.document, file.project, diagnosticsKey)
     }
 
@@ -49,11 +51,13 @@ class NostosExternalAnnotator : ExternalAnnotator<NostosExternalAnnotator.Info, 
     override fun doAnnotate(info: Info): List<Diagnostic> {
         val manager = NostosLspServerManager.getInstance(info.project)
         manager.startIfNeeded()
-        return NostosDiagnosticsCache.cache[info.fileUri] ?: emptyList()
+        return NostosDiagnosticsCache.getInstance(info.project).cache[info.fileUri] ?: emptyList()
     }
 
     override fun apply(file: PsiFile, diagnostics: List<Diagnostic>, holder: AnnotationHolder) {
         val document = file.viewProvider.document ?: return
+        // Compute the file URI once rather than per fixable diagnostic.
+        val uri by lazy(LazyThreadSafetyMode.NONE) { NostosLspUri.of(file.virtualFile) }
         for (diag in diagnostics) {
             val startOffset = lspPositionToOffset(document, diag.range.start.line, diag.range.start.character)
             val endOffset = lspPositionToOffset(document, diag.range.end.line, diag.range.end.character)
@@ -75,7 +79,6 @@ class NostosExternalAnnotator : ExternalAnnotator<NostosExternalAnnotator.Info, 
 
             val builder = holder.newAnnotation(severity, diag.message).range(range)
             if (hasFixableCodeAction(diag)) {
-                val uri = URI("file", "", file.virtualFile.path, null).toString()
                 builder.withFix(NostosCodeActionQuickFix(uri, diag))
             }
             builder.create()
@@ -93,6 +96,18 @@ class NostosExternalAnnotator : ExternalAnnotator<NostosExternalAnnotator.Info, 
 
 }
 
-object NostosDiagnosticsCache {
+/**
+ * Per-project store of the diagnostics nostos-lsp last published, keyed by file
+ * URI. Project-scoped (not a global object) so two open projects cannot collide
+ * on same-named paths, and so the entries can be cleared when this project's
+ * server stops. Populated by the diagnostics listener in NostosLspStartupActivity.
+ */
+@Service(Service.Level.PROJECT)
+class NostosDiagnosticsCache {
     val cache = ConcurrentHashMap<String, List<Diagnostic>>()
+
+    companion object {
+        fun getInstance(project: Project): NostosDiagnosticsCache =
+            project.getService(NostosDiagnosticsCache::class.java)
+    }
 }

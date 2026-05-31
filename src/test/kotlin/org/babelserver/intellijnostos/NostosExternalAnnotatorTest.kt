@@ -10,6 +10,17 @@ class NostosExternalAnnotatorTest : BasePlatformTestCase() {
 
     private val annotator = NostosExternalAnnotator()
 
+    override fun tearDown() {
+        // doAnnotate() calls startIfNeeded(), which on a machine with nostos
+        // installed actually launches the server. Stop it so it neither lingers
+        // nor pollutes the shared light-fixture project for later test classes.
+        try {
+            org.babelserver.intellijnostos.lsp.NostosLspServerManager.getInstance(project).stop()
+        } finally {
+            super.tearDown()
+        }
+    }
+
     // ==================== collectInformation ====================
 
     fun testCollectInfoNonNostosFile() {
@@ -30,7 +41,7 @@ class NostosExternalAnnotatorTest : BasePlatformTestCase() {
     // ==================== Diagnostics cache ====================
 
     fun testDiagnosticsCacheEmpty() {
-        val diagnostics = NostosDiagnosticsCache.cache["file:///nonexistent.nos"]
+        val diagnostics = NostosDiagnosticsCache.getInstance(project).cache["file:///nonexistent.nos"]
         assertNull(diagnostics)
     }
 
@@ -41,14 +52,14 @@ class NostosExternalAnnotatorTest : BasePlatformTestCase() {
             "test error"
         ).apply { severity = DiagnosticSeverity.Error }
 
-        NostosDiagnosticsCache.cache[uri] = listOf(diag)
-        val result = NostosDiagnosticsCache.cache[uri]
+        NostosDiagnosticsCache.getInstance(project).cache[uri] = listOf(diag)
+        val result = NostosDiagnosticsCache.getInstance(project).cache[uri]
         assertNotNull(result)
         assertEquals(1, result!!.size)
         assertEquals("test error", result[0].message)
         assertEquals(DiagnosticSeverity.Error, result[0].severity)
 
-        NostosDiagnosticsCache.cache.remove(uri)
+        NostosDiagnosticsCache.getInstance(project).cache.remove(uri)
     }
 
     // ==================== doAnnotate with diagnostics ====================
@@ -63,14 +74,14 @@ class NostosExternalAnnotatorTest : BasePlatformTestCase() {
             "some error"
         ).apply { severity = DiagnosticSeverity.Error }
 
-        NostosDiagnosticsCache.cache[info!!.fileUri] = listOf(diag)
+        NostosDiagnosticsCache.getInstance(project).cache[info!!.fileUri] = listOf(diag)
 
         val result = annotator.doAnnotate(info)
         assertEquals(1, result.size)
         assertEquals("some error", result[0].message)
         assertEquals(DiagnosticSeverity.Error, result[0].severity)
 
-        NostosDiagnosticsCache.cache.remove(info.fileUri)
+        NostosDiagnosticsCache.getInstance(project).cache.remove(info.fileUri)
     }
 
     fun testApplyWarningDiagnostic() {
@@ -83,14 +94,14 @@ class NostosExternalAnnotatorTest : BasePlatformTestCase() {
             "division by zero"
         ).apply { severity = DiagnosticSeverity.Warning }
 
-        NostosDiagnosticsCache.cache[info!!.fileUri] = listOf(diag)
+        NostosDiagnosticsCache.getInstance(project).cache[info!!.fileUri] = listOf(diag)
 
         val result = annotator.doAnnotate(info)
         assertEquals(1, result.size)
         assertEquals("division by zero", result[0].message)
         assertEquals(DiagnosticSeverity.Warning, result[0].severity)
 
-        NostosDiagnosticsCache.cache.remove(info.fileUri)
+        NostosDiagnosticsCache.getInstance(project).cache.remove(info.fileUri)
     }
 
     fun testApplyMultipleDiagnostics() {
@@ -103,13 +114,13 @@ class NostosExternalAnnotatorTest : BasePlatformTestCase() {
             Diagnostic(Range(Position(0, 8), Position(0, 9)), "error 2").apply { severity = DiagnosticSeverity.Error },
         )
 
-        NostosDiagnosticsCache.cache[info!!.fileUri] = diags
+        NostosDiagnosticsCache.getInstance(project).cache[info!!.fileUri] = diags
 
         val result = annotator.doAnnotate(info)
         assertEquals(2, result.size)
         assertEquals("error 1", result[0].message)
         assertEquals("error 2", result[1].message)
 
-        NostosDiagnosticsCache.cache.remove(info.fileUri)
+        NostosDiagnosticsCache.getInstance(project).cache.remove(info.fileUri)
     }
 }

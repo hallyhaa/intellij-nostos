@@ -134,6 +134,9 @@ kover {
                     "org.babelserver.intellijnostos.lsp.NostosCallerTreeStructure*",
                     "org.babelserver.intellijnostos.lsp.NostosCodeActionQuickFix*",
                     "org.babelserver.intellijnostos.lsp.NostosFileStatus*",
+                    // Settings UI (a Configurable) — only exercised by opening
+                    // the settings dialog, not by unit tests.
+                    "org.babelserver.intellijnostos.settings.NostosSettingsConfigurable*",
                 )
             }
         }

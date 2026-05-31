@@ -10,9 +10,9 @@ import com.intellij.patterns.PlatformPatterns
 import com.intellij.util.PlatformIcons
 import com.intellij.util.ProcessingContext
 import org.babelserver.intellijnostos.lsp.NostosLspServerManager
+import org.babelserver.intellijnostos.lsp.NostosLspUri
 import org.eclipse.lsp4j.*
 import org.eclipse.lsp4j.jsonrpc.messages.Either
-import java.net.URI
 import java.util.concurrent.TimeUnit
 import javax.swing.Icon
 
@@ -70,12 +70,12 @@ class NostosLspCompletionContributor : CompletionContributor() {
             val line = document.getLineNumber(afterDot)
             val character = afterDot - document.getLineStartOffset(line)
             val prefix = text.substring(afterDot, caretOffset)
-            val uri = URI("file", "", file.path, null).toString()
+            val uri = NostosLspUri.of(file)
 
             try {
                 val response = server.textDocumentService
                     .completion(CompletionParams(TextDocumentIdentifier(uri), Position(line, character)))
-                    .get(2, TimeUnit.SECONDS)
+                    .get(COMPLETION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
 
                 val items: List<CompletionItem> = when {
                     response == null -> emptyList()
@@ -109,6 +109,8 @@ class NostosLspCompletionContributor : CompletionContributor() {
     }
 
     companion object {
+        private const val COMPLETION_TIMEOUT_MS = 1_500L
+
         internal fun processCompletionItems(items: List<CompletionItem>): List<CompletionItem> =
             items
                 .filter { !it.label.startsWith(":") }

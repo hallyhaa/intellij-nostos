@@ -63,6 +63,8 @@ class NostosSettingsConfigurable(private val project: Project) : Configurable {
     override fun apply() {
         val settings = NostosAppSettings.getInstance()
         settings.state.nostosPath = pathField.text
+        // The path changed, so cached detection/version are now stale.
+        settings.invalidateCaches()
     }
 
     override fun reset() {

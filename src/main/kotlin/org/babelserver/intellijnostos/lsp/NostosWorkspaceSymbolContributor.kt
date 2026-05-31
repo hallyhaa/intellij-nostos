@@ -11,6 +11,7 @@ import com.intellij.navigation.ItemPresentation
 import com.intellij.navigation.NavigationItem
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
@@ -34,10 +35,21 @@ class NostosWorkspaceSymbolContributor : ChooseByNameContributor {
 
     private val log = Logger.getInstance(NostosWorkspaceSymbolContributor::class.java)
 
+    // The Go to Symbol popup calls getNames once and getItemsByName once per
+    // matching name as the user types — each previously firing its own blocking
+    // workspace/symbol roundtrip, with getNames re-fetching every symbol in the
+    // project each keystroke. We fetch the full symbol set once and reuse it for
+    // a short window so a single popup session does one roundtrip, not many.
+    @Volatile
+    private var cache: Cached? = null
+
+    // This contributor is an application-level singleton shared across projects,
+    // so the cache must record which project it was populated for and only be
+    // reused for that same project.
+    private class Cached(val project: Project, val symbols: List<SymbolInformation>, val atNanos: Long)
+
     override fun getNames(project: Project, includeNonProjectItems: Boolean): Array<String> {
-        // An empty query asks the server for everything it knows; the framework
-        // filters these names against the user's pattern.
-        return query(project, "").mapNotNull { it.name }.distinct().toTypedArray()
+        return allSymbols(project).mapNotNull { it.name }.distinct().toTypedArray()
     }
 
     override fun getItemsByName(
@@ -46,10 +58,20 @@ class NostosWorkspaceSymbolContributor : ChooseByNameContributor {
         project: Project,
         includeNonProjectItems: Boolean,
     ): Array<NavigationItem> {
-        return query(project, name)
+        // Filter the cached full set rather than issuing a second roundtrip.
+        return allSymbols(project)
             .filter { it.name == name }
             .mapNotNull { info -> toNavigationItem(project, info) }
             .toTypedArray()
+    }
+
+    /** Every symbol the server knows, cached for [CACHE_TTL_NANOS] per session. */
+    private fun allSymbols(project: Project): List<SymbolInformation> {
+        val now = System.nanoTime()
+        cache?.let { if (it.project == project && now - it.atNanos < CACHE_TTL_NANOS) return it.symbols }
+        val fresh = query(project, "")
+        cache = Cached(project, fresh, now)
+        return fresh
     }
 
     private fun query(project: Project, queryString: String): List<SymbolInformation> {
@@ -57,6 +79,8 @@ class NostosWorkspaceSymbolContributor : ChooseByNameContributor {
         val response = try {
             server.workspaceService.symbol(WorkspaceSymbolParams(queryString))
                 .get(SYMBOL_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } catch (e: ProcessCanceledException) {
+            throw e
         } catch (e: Exception) {
             log.debug("workspace/symbol request failed", e)
             null
@@ -88,6 +112,7 @@ class NostosWorkspaceSymbolContributor : ChooseByNameContributor {
 
     companion object {
         private const val SYMBOL_TIMEOUT_MS = 2_000L
+        private const val CACHE_TTL_NANOS = 3_000_000_000L // 3s — covers one popup session
     }
 }
 
