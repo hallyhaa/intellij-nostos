@@ -9,7 +9,6 @@ import org.eclipse.lsp4j.CodeActionContext
 import org.eclipse.lsp4j.CodeActionParams
 import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.TextDocumentIdentifier
-import org.eclipse.lsp4j.jsonrpc.messages.Either
 import java.util.concurrent.TimeUnit
 
 /**

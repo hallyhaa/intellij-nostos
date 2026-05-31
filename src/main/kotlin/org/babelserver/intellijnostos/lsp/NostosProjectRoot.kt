@@ -80,7 +80,8 @@ internal object NostosProjectRoot {
 
         // Priority 2: the directory directly holding the most .nos files.
         val byParent = nosFiles
-            .mapNotNull { File(it).parent }
+            .map { it.substringBeforeLast('/', missingDelimiterValue = "") }
+            .filter { it.isNotEmpty() }
             .groupingBy { it }
             .eachCount()
             .toList()
@@ -94,18 +95,26 @@ internal object NostosProjectRoot {
     /**
      * Orders (directory, count) candidates so the *first* by this comparator is
      * the best pick: most `.nos` files, then shallowest path, then alphabetical.
+     *
+     * Depth is counted in `'/'` separators, not [File.separatorChar]: these
+     * paths come from [com.intellij.openapi.vfs.VirtualFile.path], which is
+     * always `'/'`-separated regardless of OS.
      */
     private val byCountThenDepthThenPath: Comparator<Pair<String, Int>> =
         compareBy(
             { -it.second },
-            { it.first.count { c -> c == File.separatorChar } },
+            { it.first.count { c -> c == '/' } },
             { it.first },
         )
 
-    /** True when [this] path lies at or under directory [dir]. */
+    /**
+     * True when [this] path lies at or under directory [dir]. Compares on `'/'`
+     * because the inputs are `VirtualFile.path` values (forward-slashed on every
+     * platform); using [File.separatorChar] would break on Windows.
+     */
     private fun String.isUnder(dir: String): Boolean {
-        val d = dir.trimEnd(File.separatorChar)
-        return this == d || startsWith("$d${File.separatorChar}")
+        val d = dir.trimEnd('/')
+        return this == d || startsWith("$d/")
     }
 
     /**

@@ -27,4 +27,11 @@ class NostosWorkspaceEditsTest : BasePlatformTestCase() {
         assertEquals(-1, NostosWorkspaceEdits.lspPositionToOffset(doc, -1, 0))
         assertEquals(-1, NostosWorkspaceEdits.lspPositionToOffset(doc, 99, 0))
     }
+
+    fun testNegativeCharacterClampsToLineStart() {
+        // line 1 ("cd") starts at offset 3; a negative character must clamp to
+        // that offset rather than landing earlier in the document.
+        val doc = myFixture.configureByText("a.nos", "ab\ncd").viewProvider.document!!
+        assertEquals(3, NostosWorkspaceEdits.lspPositionToOffset(doc, 1, -5))
+    }
 }

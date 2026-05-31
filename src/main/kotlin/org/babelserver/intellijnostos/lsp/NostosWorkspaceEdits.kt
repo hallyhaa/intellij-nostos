@@ -13,6 +13,7 @@ import com.intellij.psi.PsiDocumentManager
 import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.WorkspaceEdit
 import java.net.URI
+import java.net.URISyntaxException
 
 /**
  * Applies an LSP [WorkspaceEdit] to the project's documents as a single,
@@ -88,7 +89,14 @@ internal object NostosWorkspaceEdits {
     }
 
     private fun resolveFile(uri: String): VirtualFile? {
-        val path = URI(uri).path ?: return null
+        // The URI comes from the language server; a malformed value must not
+        // throw and abort the whole workspace edit. Treat it as unresolvable.
+        val path = try {
+            URI(uri).path
+        } catch (e: URISyntaxException) {
+            log.warn("workspace edit: malformed URI $uri", e)
+            null
+        } ?: return null
         return LocalFileSystem.getInstance().findFileByPath(path)
     }
 
@@ -96,6 +104,8 @@ internal object NostosWorkspaceEdits {
         if (line < 0 || line >= document.lineCount) return -1
         val lineStart = document.getLineStartOffset(line)
         val lineEnd = document.getLineEndOffset(line)
-        return (lineStart + character).coerceAtMost(lineEnd)
+        // Clamp into [lineStart, lineEnd]: a negative character would otherwise
+        // land before the line start (while still >= 0) and edit the wrong text.
+        return (lineStart + character).coerceIn(lineStart, lineEnd)
     }
 }
