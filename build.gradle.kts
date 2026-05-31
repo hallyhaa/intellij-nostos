@@ -26,7 +26,7 @@ dependencies {
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
 
-    testImplementation(platform("org.junit:junit-bom:6.0.3"))
+    testImplementation(platform("org.junit:junit-bom:6.1.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("junit:junit:4.13.2") // For BasePlatformTestCase
 
@@ -96,4 +96,46 @@ tasks.named("compileJava") {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+kover {
+    reports {
+        filters {
+            excludes {
+                // Coverage is measured on hand-written, unit-testable logic.
+                // The classes below are IntelliJ extension points (annotators,
+                // contributors, handlers, providers, the startup ProjectActivity)
+                // or nostos-lsp transport/process wiring: they can only be
+                // exercised meaningfully by integration tests against a running
+                // IDE and a live language server, so their line counts would
+                // otherwise drown out the logic we can actually test. Pure
+                // utility objects with real logic (NostosProjectRoot,
+                // NostosMissingManifestNotifier, the wizard scaffold, resolvers)
+                // are deliberately NOT excluded and remain covered by unit tests.
+                classes(
+                    "org.babelserver.intellijnostos.NostosExternalAnnotator*",
+                    "org.babelserver.intellijnostos.NostosSemanticHighlighter*",
+                    "org.babelserver.intellijnostos.NostosInlayHintsProvider*",
+                    "org.babelserver.intellijnostos.NostosLspParameterInfoHandler*",
+                    "org.babelserver.intellijnostos.NostosLspDocumentationProvider*",
+                    "org.babelserver.intellijnostos.lsp.NostosLspServerManager*",
+                    "org.babelserver.intellijnostos.lsp.NostosLspClient*",
+                    "org.babelserver.intellijnostos.lsp.NostosLspStartupActivity*",
+                    "org.babelserver.intellijnostos.lsp.NostosLspProgressTracker*",
+                    "org.babelserver.intellijnostos.lsp.NostosLspRenameHandler*",
+                    "org.babelserver.intellijnostos.lsp.NostosWorkspaceSymbolContributor*",
+                    "org.babelserver.intellijnostos.lsp.NostosSymbolNavigationItem*",
+                    "org.babelserver.intellijnostos.lsp.NostosWorkspaceEdits*",
+                    "org.babelserver.intellijnostos.lsp.NostosReferencesCodeVisionProvider*",
+                    "org.babelserver.intellijnostos.lsp.NostosHighlightUsagesHandler*",
+                    "org.babelserver.intellijnostos.lsp.NostosCallHierarchy*",
+                    "org.babelserver.intellijnostos.lsp.NostosCallNodeDescriptor*",
+                    "org.babelserver.intellijnostos.lsp.NostosCalleeTreeStructure*",
+                    "org.babelserver.intellijnostos.lsp.NostosCallerTreeStructure*",
+                    "org.babelserver.intellijnostos.lsp.NostosCodeActionQuickFix*",
+                    "org.babelserver.intellijnostos.lsp.NostosFileStatus*",
+                )
+            }
+        }
+    }
 }

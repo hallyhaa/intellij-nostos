@@ -99,7 +99,10 @@ class NostosInlayHintsProvider : InlayHintsProvider {
             if (line < 0 || line >= document.lineCount) return -1
             val lineStart = document.getLineStartOffset(line)
             val lineEnd = document.getLineEndOffset(line)
-            return (lineStart + character).coerceAtMost(lineEnd)
+            // coerceIn, not coerceAtMost: a negative character would otherwise
+            // land before the line start (while still >= 0) and place the hint
+            // at the wrong offset.
+            return (lineStart + character).coerceIn(lineStart, lineEnd)
         }
 
         companion object {

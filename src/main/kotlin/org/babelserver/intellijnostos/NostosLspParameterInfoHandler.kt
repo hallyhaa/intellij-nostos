@@ -77,8 +77,16 @@ class NostosLspParameterInfoHandler : ParameterInfoHandler<PsiElement, Signature
         val signature = activeSignature(p) ?: return
         val params = signature.parameters.orEmpty()
         if (params.isEmpty()) {
+            // No structured parameter list. This is NOT the same as "takes no
+            // arguments": nostos-lsp omits per-parameter entries for polymorphic
+            // functions whose parameters have no concrete type, while still
+            // describing them in the signature label (e.g.
+            // "chunk: ... => a -> auto -> auto" for a two-arg call). Showing
+            // "<no parameters>" there would be a lie. Fall back to the label,
+            // which carries the arity and any type constraints; only when even
+            // the label is empty do we admit we have nothing to show.
             context.setupUIComponentPresentation(
-                NO_PARAMETERS_TEXT,
+                fallbackPresentation(signature),
                 0,
                 0,
                 false,
@@ -129,9 +137,15 @@ class NostosLspParameterInfoHandler : ParameterInfoHandler<PsiElement, Signature
      * Returns -1 if no enclosing `(` is found (the caret has moved outside
      * the call and the popup should close).
      */
-    private fun computeCurrentParameterIndex(document: Document, caret: Int): Int {
+    private fun computeCurrentParameterIndex(document: Document, caret: Int): Int =
+        computeCurrentParameterIndex(document.charsSequence, caret)
+
+    /**
+     * Pure overload operating on the raw text, split out so the comma/paren
+     * counting can be unit-tested without a platform [Document].
+     */
+    internal fun computeCurrentParameterIndex(text: CharSequence, caret: Int): Int {
         if (caret <= 0) return -1
-        val text = document.charsSequence
         val safeEnd = caret.coerceAtMost(text.length)
         var nesting = 0
         var commas = 0
@@ -150,7 +164,16 @@ class NostosLspParameterInfoHandler : ParameterInfoHandler<PsiElement, Signature
         return -1
     }
 
-    private fun activeSignature(help: SignatureHelp): SignatureInformation? {
+    /**
+     * Text to show when the server returned a signature with no structured
+     * parameters: prefer the full signature label (which still conveys arity
+     * and types for polymorphic functions), falling back to the explicit
+     * no-parameters marker only when the label is blank too.
+     */
+    internal fun fallbackPresentation(signature: SignatureInformation): String =
+        signature.label?.takeIf { it.isNotBlank() } ?: NO_PARAMETERS_TEXT
+
+    internal fun activeSignature(help: SignatureHelp): SignatureInformation? {
         val signatures = help.signatures ?: return null
         if (signatures.isEmpty()) return null
         val idx = (help.activeSignature ?: 0).coerceIn(0, signatures.size - 1)
@@ -162,7 +185,7 @@ class NostosLspParameterInfoHandler : ParameterInfoHandler<PsiElement, Signature
      * `ParameterInformation.label` as either a substring of the signature
      * label, or as a `[start, end]` integer pair pointing into that label.
      */
-    private fun parameterText(signature: SignatureInformation, param: ParameterInformation): String {
+    internal fun parameterText(signature: SignatureInformation, param: ParameterInformation): String {
         val labelOrRange: Either<String, Tuple.Two<Int, Int>> = param.label ?: return ""
         return if (labelOrRange.isRight) {
             val range = labelOrRange.right

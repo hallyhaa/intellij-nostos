@@ -7,6 +7,7 @@ import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFile
+import org.babelserver.intellijnostos.lsp.NostosCodeActionQuickFix
 import org.babelserver.intellijnostos.lsp.NostosLspServerManager
 import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.DiagnosticSeverity
@@ -37,6 +38,14 @@ class NostosExternalAnnotator : ExternalAnnotator<NostosExternalAnnotator.Info, 
         return Info(virtualFile.path, uri, editor.document, file.project, diagnosticsKey)
     }
 
+    private fun hasFixableCodeAction(diag: Diagnostic): Boolean {
+        // The server offers an "Add missing import" code action for unknown
+        // function/variable diagnostics. Gate the quick-fix on that message
+        // shape so we don't attach a (request-issuing) fix to every diagnostic.
+        val msg = diag.message?.lowercase() ?: return false
+        return ("unknown function" in msg || "unknown variable" in msg)
+    }
+
     override fun doAnnotate(info: Info): List<Diagnostic> {
         val manager = NostosLspServerManager.getInstance(info.project)
         manager.startIfNeeded()
@@ -64,7 +73,12 @@ class NostosExternalAnnotator : ExternalAnnotator<NostosExternalAnnotator.Info, 
                 else -> HighlightSeverity.WARNING
             }
 
-            holder.newAnnotation(severity, diag.message).range(range).create()
+            val builder = holder.newAnnotation(severity, diag.message).range(range)
+            if (hasFixableCodeAction(diag)) {
+                val uri = URI("file", "", file.virtualFile.path, null).toString()
+                builder.withFix(NostosCodeActionQuickFix(uri, diag))
+            }
+            builder.create()
         }
     }
 
@@ -72,7 +86,9 @@ class NostosExternalAnnotator : ExternalAnnotator<NostosExternalAnnotator.Info, 
         if (line < 0 || line >= document.lineCount) return -1
         val lineStart = document.getLineStartOffset(line)
         val lineEnd = document.getLineEndOffset(line)
-        return (lineStart + character).coerceAtMost(lineEnd)
+        // coerceIn, not coerceAtMost: a negative character would otherwise land
+        // before the line start (while still >= 0) and mark the wrong range.
+        return (lineStart + character).coerceIn(lineStart, lineEnd)
     }
 
 }

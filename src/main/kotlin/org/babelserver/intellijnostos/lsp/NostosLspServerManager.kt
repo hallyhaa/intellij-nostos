@@ -286,11 +286,15 @@ class NostosLspServerManager(private val project: Project) : Disposable {
      *
      * Runs synchronously (the start path blocks on initialization), so callers
      * must invoke this off the EDT.
+     *
+     * @param newRoot when non-null, the workspace root to re-root the server at
+     *   (used after a nostos.toml is generated in a directory other than the
+     *   current root). When null, the previous root is reused.
      */
-    internal fun restart() {
-        log.info("Restarting nostos-lsp")
+    internal fun restart(newRoot: String? = null) {
+        log.info("Restarting nostos-lsp${newRoot?.let { " (root: $it)" } ?: ""}")
         stopServer()
-        startIfNeeded()
+        startIfNeeded(lspRoot = newRoot)
     }
 
     private fun stopServer() {

@@ -8,6 +8,7 @@ import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.platform.ide.progress.withBackgroundProgress
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.util.Alarm
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.withTimeoutOrNull
 import org.babelserver.intellijnostos.NostosDiagnosticsCache
@@ -24,6 +25,16 @@ class NostosLspStartupActivity : ProjectActivity {
         // heuristic "analyzing" progress something to wait on.
         val firstDiagnostics = CompletableFuture<Unit>()
 
+        // Coalesces daemon restarts. While the server compiles a project on
+        // open it publishes diagnostics one file at a time, and a full
+        // DaemonCodeAnalyzer.restart() per notification thrashes the annotator,
+        // semantic-token and inlay passes for the open editors. A trailing
+        // debounce collapses each burst into a single restart once diagnostics
+        // settle. SWING_THREAD runs the request on the EDT, where restart()
+        // expects to be called; the alarm is parented to the project-scoped
+        // server manager so it is disposed with the project.
+        val restartAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, manager)
+
         manager.diagnosticsListener = { params ->
             firstDiagnostics.complete(Unit)
             NostosDiagnosticsCache.cache[params.uri] = params.diagnostics
@@ -33,9 +44,11 @@ class NostosLspStartupActivity : ProjectActivity {
             // diagnostics arrived without an editor edit, so a per-file restart
             // would be gated out by the unchanged document mod-stamp; a
             // whole-daemon restart() ignores those per-file stamps.
-            ApplicationManager.getApplication().invokeLater {
-                DaemonCodeAnalyzer.getInstance(project).restart("Nostos LSP published diagnostics")
-            }
+            restartAlarm.cancelAllRequests()
+            restartAlarm.addRequest(
+                { DaemonCodeAnalyzer.getInstance(project).restart("Nostos LSP published diagnostics") },
+                RESTART_DEBOUNCE_MS,
+            )
         }
 
         // Resolve the workspace root from the filesystem — the index can be
@@ -43,14 +56,39 @@ class NostosLspStartupActivity : ProjectActivity {
         val basePath = project.basePath ?: return
         val manifests = NostosProjectRoot.findManifests(File(basePath))
 
+        // Locate every .nos file once; needed both to decide whether this is a
+        // Nostos project and, when there is no manifest, to pick where to offer
+        // generating one.
+        val nosFiles = smartReadAction(project) {
+            FileTypeIndex.getFiles(NostosFileType, GlobalSearchScope.projectScope(project))
+                .map { it.path }
+        }
+
         // Start the language server only for Nostos projects: those with a
         // nostos.toml, or with .nos files somewhere in the project.
-        val isNostosProject = manifests.isNotEmpty() || smartReadAction(project) {
-            FileTypeIndex.containsFileOfType(NostosFileType, GlobalSearchScope.projectScope(project))
-        }
+        val isNostosProject = manifests.isNotEmpty() || nosFiles.isNotEmpty()
         if (!isNostosProject) return
 
         val lspRoot = NostosProjectRoot.choose(manifests, basePath)
+
+        // The project has .nos files but no manifest. The server still runs
+        // (rooted at lspRoot), but without nostos.toml it cannot resolve the
+        // project's dependencies. Offer to generate one — beside the user's
+        // sources rather than dumped at the project root — rather than writing
+        // it unprompted. A single notification per project, targeting one best
+        // directory, keeps this from nagging on projects with loose .nos files.
+        if (manifests.isEmpty()) {
+            val sourceRoots = smartReadAction(project) {
+                com.intellij.openapi.roots.ProjectRootManager.getInstance(project)
+                    .contentSourceRoots.map { it.path }
+            }
+            val target = NostosProjectRoot.chooseManifestTarget(sourceRoots, nosFiles, basePath)
+            if (target != null) {
+                ApplicationManager.getApplication().invokeLater {
+                    NostosMissingManifestNotifier.notify(project, target)
+                }
+            }
+        }
 
         // Two-phase heuristic progress. The startup phase covers the cold
         // process spawn and the initialize handshake. The analysis phase
@@ -70,5 +108,12 @@ class NostosLspStartupActivity : ProjectActivity {
 
     companion object {
         private const val ANALYSIS_TIMEOUT_MS = 60_000L
+
+        /**
+         * Trailing-debounce window for diagnostics-driven daemon restarts.
+         * Long enough to swallow a startup burst of per-file diagnostics, short
+         * enough that a restart after an isolated edit feels immediate.
+         */
+        private const val RESTART_DEBOUNCE_MS = 200
     }
 }
