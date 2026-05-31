@@ -50,16 +50,24 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     private var initialized = false
     private val openFiles = mutableSetOf<String>()
 
+    /**
+     * Whether the server negotiated incremental document sync at initialize.
+     * When true we send ranged edits; otherwise we resend the whole document.
+     */
+    private var incrementalSync = false
+
     /** Per-document LSP version, keyed by URI. Reset when the server stops. */
     private val documentVersions = ConcurrentHashMap<String, Int>()
 
     /**
-     * Documents edited since the last flush, keyed by file. The full text is
-     * read lazily at flush time (not per keystroke) and sent once per quiet
-     * window, so a burst of typing collapses into a single didChange instead of
-     * one full-document round-trip per character.
+     * Documents edited since the last flush. A burst of typing collapses into a
+     * single didChange per quiet window. In full-sync mode we keep the Document
+     * and read its text once at flush; in incremental mode we accumulate the
+     * ranged edits as they happen (each tiny, no full-buffer copy) and send them
+     * as one ordered batch.
      */
-    private val pendingChanges = ConcurrentHashMap<VirtualFile, Document>()
+    private val pendingFullText = ConcurrentHashMap<VirtualFile, Document>()
+    private val pendingIncremental = ConcurrentHashMap<VirtualFile, MutableList<TextDocumentContentChangeEvent>>()
     private val changeDebounce by lazy { Alarm(Alarm.ThreadToUse.SWING_THREAD, this) }
 
     /** Workspace root last handed to nostos-lsp, reused when restarting. */
@@ -167,6 +175,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
 
             server!!.initialize(initParams).thenAccept { result ->
                 log.info("LSP initialized: ${result.capabilities}")
+                incrementalSync = isIncrementalSync(result.capabilities?.textDocumentSync)
                 server!!.initialized(InitializedParams())
                 initialized = true
                 notifyOpenFiles()
@@ -204,10 +213,16 @@ class NostosLspServerManager(private val project: Project) : Disposable {
                 if (!initialized) return
                 val file = FileDocumentManager.getInstance().getFile(event.document) ?: return
                 if (file.fileType != NostosFileType) return
-                // Record the document and debounce; the text is read once at
-                // flush, not copied on every keystroke. didChange's own
-                // openFiles guard filters out files this server doesn't own.
-                pendingChanges[file] = event.document
+                // Record the edit and debounce; flush sends one didChange per
+                // quiet window. didChange's own openFiles guard filters out
+                // files this server doesn't own.
+                if (incrementalSync) {
+                    // Capture the ranged edit now (cheap); the range arithmetic
+                    // needs this event's old/new fragments.
+                    pendingIncremental.getOrPut(file) { mutableListOf() }.add(incrementalChange(event))
+                } else {
+                    pendingFullText[file] = event.document
+                }
                 changeDebounce.cancelAllRequests()
                 changeDebounce.addRequest(::flushPendingChanges, CHANGE_DEBOUNCE_MS)
             }
@@ -283,23 +298,33 @@ class NostosLspServerManager(private val project: Project) : Disposable {
         val uri = file.toUri()
         if (!initialized || !openFiles.remove(uri)) return
         documentVersions.remove(uri)
-        pendingChanges.remove(file)
+        pendingFullText.remove(file)
+        pendingIncremental.remove(file)
         server?.textDocumentService?.didClose(DidCloseTextDocumentParams(
             TextDocumentIdentifier(uri)
         ))
     }
 
-    /** Sends the latest text of every document edited since the last flush. */
+    /** Sends every document edited since the last flush, as one didChange each. */
     private fun flushPendingChanges() {
-        if (pendingChanges.isEmpty()) return
-        val snapshot = HashMap(pendingChanges)
-        pendingChanges.clear()
-        for ((file, document) in snapshot) {
-            didChange(file, document.text)
+        if (pendingIncremental.isNotEmpty()) {
+            val snapshot = HashMap(pendingIncremental)
+            pendingIncremental.clear()
+            for ((file, changes) in snapshot) sendDidChange(file, changes)
+        }
+        if (pendingFullText.isNotEmpty()) {
+            val snapshot = HashMap(pendingFullText)
+            pendingFullText.clear()
+            for ((file, document) in snapshot) didChange(file, document.text)
         }
     }
 
     fun didChange(file: VirtualFile, content: String) {
+        // Whole-document replacement (full-sync mode, or an explicit caller).
+        sendDidChange(file, listOf(TextDocumentContentChangeEvent(content)))
+    }
+
+    private fun sendDidChange(file: VirtualFile, changes: List<TextDocumentContentChangeEvent>) {
         val uri = file.toUri()
         if (!initialized || uri !in openFiles) return
         // Per-document monotonic version: LSP wants the version to increase per
@@ -307,8 +332,32 @@ class NostosLspServerManager(private val project: Project) : Disposable {
         val nextVersion = documentVersions.merge(uri, 1) { old, _ -> old + 1 } ?: 1
         server?.textDocumentService?.didChange(DidChangeTextDocumentParams(
             VersionedTextDocumentIdentifier(uri, nextVersion),
-            listOf(TextDocumentContentChangeEvent(content))
+            changes,
         ))
+    }
+
+    /**
+     * Builds the LSP ranged change for one [DocumentEvent]. The start position
+     * is read from the (new) document at the edit offset — content before the
+     * offset is untouched, so its line/column is identical in the pre-edit
+     * document the range must describe. The end position is that start plus the
+     * shape of the removed text ([DocumentEvent.getOldFragment]).
+     */
+    private fun incrementalChange(event: DocumentEvent): TextDocumentContentChangeEvent {
+        val doc = event.document
+        val offset = event.offset
+        val startLine = doc.getLineNumber(offset)
+        val start = Position(startLine, offset - doc.getLineStartOffset(startLine))
+        val range = Range(start, changeEndPosition(start, event.oldFragment))
+        return TextDocumentContentChangeEvent(range, event.newFragment.toString())
+    }
+
+    private fun isIncrementalSync(
+        sync: org.eclipse.lsp4j.jsonrpc.messages.Either<TextDocumentSyncKind, TextDocumentSyncOptions>?,
+    ): Boolean = when {
+        sync == null -> false
+        sync.isLeft -> sync.left == TextDocumentSyncKind.Incremental
+        else -> sync.right?.change == TextDocumentSyncKind.Incremental
     }
 
     val activeServer: LanguageServer? get() = if (initialized) server else null
@@ -351,9 +400,11 @@ class NostosLspServerManager(private val project: Project) : Disposable {
         server = null
         client = null
         initialized = false
+        incrementalSync = false
         openFiles.clear()
         documentVersions.clear()
-        pendingChanges.clear()
+        pendingFullText.clear()
+        pendingIncremental.clear()
     }
 
     override fun dispose() {
@@ -389,6 +440,22 @@ class NostosLspServerManager(private val project: Project) : Disposable {
 
         /** Quiet window before a burst of edits is flushed to the server. */
         private const val CHANGE_DEBOUNCE_MS = 150
+
+        /**
+         * End position of an incremental edit, given its [start] position and
+         * the text it removed. Within a single line the column advances by the
+         * removed length; across lines it moves down one line per newline and
+         * the column becomes the offset within the final removed line. Pure and
+         * separated out so the off-by-one-prone arithmetic can be unit-tested.
+         */
+        internal fun changeEndPosition(start: Position, removed: CharSequence): Position {
+            val newlines = removed.count { it == '\n' }
+            return if (newlines == 0) {
+                Position(start.line, start.character + removed.length)
+            } else {
+                Position(start.line + newlines, removed.length - (removed.lastIndexOf('\n') + 1))
+            }
+        }
 
         private const val NOSTOS_INSTALL_URL = "https://heynostos.tech"
 

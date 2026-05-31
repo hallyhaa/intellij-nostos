@@ -101,9 +101,11 @@ private class NostosCallerTreeStructure(
     element: PsiElement,
 ) : HierarchyTreeStructure(project, NostosCallNodeDescriptor(project, null, element, true)) {
 
+    private val itemCache = HashMap<PsiElement, CallHierarchyItem?>()
+
     override fun buildChildren(descriptor: HierarchyNodeDescriptor): Array<Any> {
         val element = descriptor.psiElement ?: return emptyArray()
-        val item = prepareItem(myProject, element) ?: return emptyArray()
+        val item = itemCache.getOrPut(element) { prepareItem(myProject, element) } ?: return emptyArray()
         val server = NostosLspServerManager.getInstance(myProject).activeServer ?: return emptyArray()
         val incoming: List<CallHierarchyIncomingCall> = try {
             server.textDocumentService
@@ -129,9 +131,11 @@ private class NostosCalleeTreeStructure(
     element: PsiElement,
 ) : HierarchyTreeStructure(project, NostosCallNodeDescriptor(project, null, element, true)) {
 
+    private val itemCache = HashMap<PsiElement, CallHierarchyItem?>()
+
     override fun buildChildren(descriptor: HierarchyNodeDescriptor): Array<Any> {
         val element = descriptor.psiElement ?: return emptyArray()
-        val item = prepareItem(myProject, element) ?: return emptyArray()
+        val item = itemCache.getOrPut(element) { prepareItem(myProject, element) } ?: return emptyArray()
         val server = NostosLspServerManager.getInstance(myProject).activeServer ?: return emptyArray()
         val outgoing: List<CallHierarchyOutgoingCall> = try {
             server.textDocumentService
