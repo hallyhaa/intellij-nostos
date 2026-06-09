@@ -135,6 +135,8 @@
             bundle="messages.NostosBundle"
             nameKey="inlay.nostos.types.name"
             descriptionKey="inlay.nostos.types.description"/>
+        <errorHandler
+            implementation="org.babelserver.intellijnostos.NostosErrorReportSubmitter"/>
         <!--suppress PluginXmlI18n -->
         <notificationGroup id="Nostos" displayType="BALLOON"/>
         <postStartupActivity
