@@ -54,9 +54,9 @@ class NostosLspClient(private val project: Project) : LanguageClient {
         // Only repaint the project tree when the statuses actually changed; a
         // full ProjectView.refresh() on every notification is wasteful.
         if (NostosFileStatusCache.getInstance(project).updateStatuses(statuses)) {
-            ApplicationManager.getApplication().invokeLater {
+            ApplicationManager.getApplication().invokeLater({
                 ProjectView.getInstance(project).refresh()
-            }
+            }, project.disposed)
         }
     }
 
