@@ -10,6 +10,13 @@
     ]]></description>
 
     <change-notes><![CDATA[
+    <b>0.2.3</b>
+    <ul>
+        <li>Report possibility for plugin errors, opening a pre-filled GitHub issue</li>
+        <li>Fix for crash that appeared when closing a project</li>
+        <li>Fix for capturing language server crash output in the IDE log</li>
+        <li>Stability fixes around project close and rename</li>
+    </ul>
     <b>0.2.2</b>
     <ul>
         <li>"Add missing import" quick-fix on unknown function/variable errors</li>

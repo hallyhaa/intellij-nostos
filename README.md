@@ -26,6 +26,7 @@ lightweight concurrency, pattern matching, and non-blocking I/O.
 - **Code folding** — collapse blocks, functions, and modules
 - **Brace matching** — highlight matching braces, brackets, and parentheses
 - **Commenting** — toggle line comments (`#`) and block comments (`#* *#`)
+- **Error reporting** — one-click "Report" on plugin errors, pre-filling a GitHub issue
 
 ## Installation
 
