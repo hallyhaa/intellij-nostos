@@ -68,7 +68,8 @@ class NostosLspServerManager(private val project: Project) : Disposable {
      */
     private val pendingFullText = ConcurrentHashMap<VirtualFile, Document>()
     private val pendingIncremental = ConcurrentHashMap<VirtualFile, MutableList<TextDocumentContentChangeEvent>>()
-    private val changeDebounce by lazy { Alarm(Alarm.ThreadToUse.SWING_THREAD, this) }
+    private val changeDebounceLazy = lazy { Alarm(Alarm.ThreadToUse.SWING_THREAD, this) }
+    private val changeDebounce by changeDebounceLazy
 
     /** Workspace root last handed to nostos-lsp, reused when restarting. */
     private var lastLspRoot: String? = null
@@ -391,7 +392,10 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     private fun stopServer() {
         listenersDisposable?.let { Disposer.dispose(it) }
         listenersDisposable = null
-        changeDebounce.cancelAllRequests()
+        // Only touch the Alarm if it was actually created. Reading the lazy here
+        // during disposal would construct it with an already-disposed parent and
+        // throw IncorrectOperationException.
+        if (changeDebounceLazy.isInitialized()) changeDebounce.cancelAllRequests()
         client?.progressTracker?.cancelAll()
         try {
             server?.shutdown()?.get(5, TimeUnit.SECONDS)
