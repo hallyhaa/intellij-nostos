@@ -37,6 +37,7 @@ import org.eclipse.lsp4j.*
 import org.eclipse.lsp4j.launch.LSPLauncher
 import org.eclipse.lsp4j.services.LanguageServer
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -119,6 +120,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
                 .directory(File(rootDir ?: "."))
                 .redirectErrorStream(false)
             process = processBuilder.start()
+            drainStderr(process!!)
 
             val lspClient = NostosLspClient(project)
             lspClient.diagnosticsHandler = diagnosticsListener
@@ -413,6 +415,24 @@ class NostosLspServerManager(private val project: Project) : Disposable {
         documentVersions.clear()
         pendingFullText.clear()
         pendingIncremental.clear()
+    }
+
+    /**
+     * Drains the LSP process's stderr on a pooled thread and forwards it to the
+     * log. Without this the OS pipe buffer can fill and block the server, and we
+     * would lose any panic or crash output it writes. The loop ends on EOF when
+     * the process dies, so it needs no explicit cancellation.
+     */
+    private fun drainStderr(process: Process) {
+        ApplicationManager.getApplication().executeOnPooledThread {
+            try {
+                process.errorStream.bufferedReader().useLines { lines ->
+                    lines.forEach { line -> log.warn("nostos-lsp stderr: $line") }
+                }
+            } catch (_: IOException) {
+                // Stream closed as the process exited — expected on shutdown.
+            }
+        }
     }
 
     override fun dispose() {
