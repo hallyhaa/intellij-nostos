@@ -66,14 +66,15 @@ class NostosErrorReportSubmitter : ErrorReportSubmitter() {
         }
     }
 
-    private fun buildIssueUrl(title: String, body: String): String {
-        val t = URLEncoder.encode(title, StandardCharsets.UTF_8)
-        val b = URLEncoder.encode(body, StandardCharsets.UTF_8)
-        return "$ISSUE_BASE_URL?labels=bug&title=$t&body=$b"
-    }
+    companion object {
+        private const val ISSUE_BASE_URL = "https://github.com/hallyhaa/intellij-nostos/issues/new"
+        private const val MAX_STACKTRACE_CHARS = 6000
 
-    private companion object {
-        const val ISSUE_BASE_URL = "https://github.com/hallyhaa/intellij-nostos/issues/new"
-        const val MAX_STACKTRACE_CHARS = 6000
+        /** Builds the pre-filled new-issue URL. Internal so it can be unit-tested. */
+        internal fun buildIssueUrl(title: String, body: String): String {
+            val t = URLEncoder.encode(title, StandardCharsets.UTF_8)
+            val b = URLEncoder.encode(body, StandardCharsets.UTF_8)
+            return "$ISSUE_BASE_URL?labels=bug&title=$t&body=$b"
+        }
     }
 }

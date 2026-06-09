@@ -98,9 +98,9 @@ class NostosLspRenameHandler : RenameHandler {
                     log.debug("prepareRename failed", e)
                     null
                 }
-                ApplicationManager.getApplication().invokeLater {
+                ApplicationManager.getApplication().invokeLater({
                     promptAndRename(project, editor, document, caret, uri, position, server, prepared)
-                }
+                }, project.disposed)
             }
         })
     }
@@ -152,7 +152,7 @@ class NostosLspRenameHandler : RenameHandler {
                     log.warn("rename request failed", e)
                     null
                 }
-                ApplicationManager.getApplication().invokeLater {
+                ApplicationManager.getApplication().invokeLater({
                     if (edit == null) {
                         showError(editor, "Rename failed: language server returned no edit")
                         return@invokeLater
@@ -164,7 +164,7 @@ class NostosLspRenameHandler : RenameHandler {
                     if (!NostosWorkspaceEdits.apply(project, edit, "Rename '$placeholder' to '$newName'")) {
                         showError(editor, "Rename: nothing to change")
                     }
-                }
+                }, project.disposed)
             }
         })
     }
