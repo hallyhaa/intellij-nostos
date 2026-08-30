@@ -10,6 +10,10 @@
     ]]></description>
 
     <change-notes><![CDATA[
+    <b>0.2.4</b>
+    <ul>
+        <li>Fix for Go to Symbol (Ctrl+Alt+Shift+N) returning no results</li>
+    </ul>
     <b>0.2.3</b>
     <ul>
         <li>Report possibility for plugin errors, opening a pre-filled GitHub issue</li>
