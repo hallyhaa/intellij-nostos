@@ -1,6 +1,8 @@
 package org.babelserver.intellijnostos.lsp
 
 import com.intellij.ide.projectView.ProjectView
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
@@ -36,6 +38,19 @@ class NostosLspClient(private val project: Project) : LanguageClient {
 
     override fun showMessage(params: MessageParams) {
         log.info("LSP message [${params.type}]: ${params.message}")
+        // window/showMessage is the server asking for a user-visible message.
+        // Nostos-lsp uses it to report executeCommand outcomes (live commits,
+        // cache maintenance), so show it as a notification balloon.
+        val message = params.message ?: return
+        val type = when (params.type) {
+            MessageType.Error -> NotificationType.ERROR
+            MessageType.Warning -> NotificationType.WARNING
+            else -> NotificationType.INFORMATION
+        }
+        NotificationGroupManager.getInstance()
+            .getNotificationGroup("Nostos")
+            .createNotification(message, type)
+            .notify(project)
     }
 
     override fun showMessageRequest(params: ShowMessageRequestParams) = null

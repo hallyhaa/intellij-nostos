@@ -52,7 +52,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     private val openFiles = mutableSetOf<String>()
 
     /**
-     * Whether the server negotiated incremental document sync at initialize.
+     * Whether the server negotiated incremental document sync at initialise.
      * When true we send ranged edits; otherwise we resend the whole document.
      */
     private var incrementalSync = false
@@ -331,6 +331,32 @@ class NostosLspServerManager(private val project: Project) : Disposable {
         sendDidChange(file, listOf(TextDocumentContentChangeEvent(content)))
     }
 
+    /**
+     * Commits [file]'s current content to the running live system
+     * (workspace/executeCommand "nostos.commit"). (DidSave never
+     * touches the live system.)
+     *
+     * Pending debounced edits are flushed firstm so the server
+     * commits exactly what the editor shows. The server reports the
+     * outcome through window/showMessage, surfaced as a notification.
+     */
+    fun commitToLive(file: VirtualFile) {
+        if (!initialized) return
+        flushPendingChanges()
+        executeCommand("nostos.commit", listOf(file.toUri()))
+    }
+
+    /** Commits every open document to the running live system ("nostos.commitAll"). */
+    fun commitAllToLive() {
+        if (!initialized) return
+        flushPendingChanges()
+        executeCommand("nostos.commitAll", emptyList())
+    }
+
+    private fun executeCommand(command: String, arguments: List<Any>) {
+        server?.workspaceService?.executeCommand(ExecuteCommandParams(command, arguments))
+    }
+
     private fun sendDidChange(file: VirtualFile, changes: List<TextDocumentContentChangeEvent>) {
         val uri = file.toUri()
         if (!initialized || uri !in openFiles) return
@@ -375,7 +401,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
      * crash recovery, configured-path or workspace-root changes, and so on.
      * Not exposed to users.
      *
-     * Runs synchronously (the start path blocks on initialization), so callers
+     * Runs synchronously (the start path blocks on initialisation), so callers
      * must invoke this off the EDT.
      *
      * @param newRoot when non-null, the workspace root to re-root the server at
