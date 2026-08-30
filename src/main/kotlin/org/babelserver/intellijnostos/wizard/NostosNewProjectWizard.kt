@@ -10,9 +10,12 @@ import com.intellij.ide.wizard.NewProjectWizardBaseStep
 import com.intellij.ide.wizard.NewProjectWizardChainStep.Companion.nextStep
 import com.intellij.ide.wizard.NewProjectWizardStep
 import com.intellij.ide.wizard.RootNewProjectWizardStep
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.module.EmptyModuleType
+import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ModuleRootModificationUtil
+import com.intellij.openapi.util.Computable
 import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VfsUtilCore
@@ -87,43 +90,35 @@ class NostosNewProjectWizardStep(parent: NewProjectWizardStep) : AbstractNewProj
             Files.writeString(baseDir.resolve("tests").resolve(".gitkeep"), "")
         }
 
-        VfsUtil.markDirtyAndRefresh(false, true, true, baseDir.toFile())
-
-        createModule(project, basePath, projectName)
-    }
-
-    /**
-     * Creates the project's module via a ModuleBuilder committed against the
-     * model the framework provides — the path the bundled IntelliJ wizard
-     * uses; GeneratorNewProjectWizard creates no module on its own. The
-     * module's content root covers the project directory, with src/ as a
-     * sources root, tests/ as a test sources root, and the nostos caches
-     * excluded.
-     */
-    private fun createModule(project: Project, basePath: String, projectName: String) {
-        // The deprecation points at AbstractNewProjectWizardBuilder.MODIFIABLE_MODULE_MODEL_KEY
-        // and UIWizardUtil#setupProjectFromBuilder, but both of those are marked
-        // @ApiStatus.Internal/@Obsolete and the plugin verifier flags them as internal-API
-        // usage. Until JetBrains exposes a public replacement, the deprecated (but
-        // public and stable since 243) key is the only safe documented hook for
-        // committing a module into the wizard's own ModifiableModuleModel.
-        @Suppress("DEPRECATION")
-        val moduleModel = context.getUserData(NewProjectWizardStep.MODIFIABLE_MODULE_MODEL_KEY) ?: return
-        val moduleBuilder = EmptyModuleType.getInstance().createModuleBuilder()
-        moduleBuilder.name = projectName
-        moduleBuilder.moduleFilePath = "$basePath/$projectName.iml"
-        moduleBuilder.contentEntryPath = basePath
-        val module = moduleBuilder.commit(project, moduleModel).firstOrNull() ?: return
-
-        ModuleRootModificationUtil.updateModel(module) { model ->
-            val contentEntry = model.contentEntries.firstOrNull()
-                ?: model.addContentEntry(VfsUtilCore.pathToUrl(basePath))
-            contentEntry.sourceFolders.toList().forEach(contentEntry::removeSourceFolder)
-            contentEntry.addSourceFolder(VfsUtilCore.pathToUrl("$basePath/$SOURCE_DIR_NAME"), false)
-            contentEntry.addSourceFolder(VfsUtilCore.pathToUrl("$basePath/tests"), true)
-            // nostos writes its caches into the project (src/) root.
-            contentEntry.addExcludeFolder(VfsUtilCore.pathToUrl("$basePath/$SOURCE_DIR_NAME/.nostos"))
-            contentEntry.addExcludeFolder(VfsUtilCore.pathToUrl("$basePath/$SOURCE_DIR_NAME/.nostos-cache"))
+        // The markDirty half of this call is a slow operation (loads VFS children
+        // synchronously), so get this off of the EDT:
+        ApplicationManager.getApplication().executeOnPooledThread {
+            VfsUtil.markDirtyAndRefresh(true, true, true, baseDir.toFile())
         }
+
+        setupNostosModule(project, basePath, projectName)
+    }
+}
+
+/** Creates the project's module through ModuleManager. */
+internal fun setupNostosModule(project: Project, basePath: String, projectName: String) {
+    val module = ApplicationManager.getApplication().runWriteAction(
+        Computable {
+            val moduleModel = ModuleManager.getInstance(project).getModifiableModel()
+            val module = moduleModel.newModule("$basePath/$projectName.iml", EmptyModuleType.EMPTY_MODULE)
+            moduleModel.commit()
+            module
+        },
+    )
+
+    ModuleRootModificationUtil.updateModel(module) { model ->
+        val contentEntry = model.contentEntries.firstOrNull()
+            ?: model.addContentEntry(VfsUtilCore.pathToUrl(basePath))
+        contentEntry.sourceFolders.toList().forEach(contentEntry::removeSourceFolder)
+        contentEntry.addSourceFolder(VfsUtilCore.pathToUrl("$basePath/$SOURCE_DIR_NAME"), false)
+        contentEntry.addSourceFolder(VfsUtilCore.pathToUrl("$basePath/tests"), true)
+        // nostos writes its caches into the project (src/) root.
+        contentEntry.addExcludeFolder(VfsUtilCore.pathToUrl("$basePath/$SOURCE_DIR_NAME/.nostos"))
+        contentEntry.addExcludeFolder(VfsUtilCore.pathToUrl("$basePath/$SOURCE_DIR_NAME/.nostos-cache"))
     }
 }
