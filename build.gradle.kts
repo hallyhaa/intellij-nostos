@@ -96,6 +96,11 @@ tasks.named("compileJava") {
 
 tasks.test {
     useJUnitPlatform()
+    // Load only this plugin (plus the platform) in the test IDE. Since
+    // intellij-platform-gradle-plugin 2.18, the test runtime loads all
+    // bundled plugins, and the Vue plugin's LSP provider fails its
+    // static init in headless tests, making every test that touches VFS fail.
+    systemProperty("idea.load.plugins.id", "org.babelserver.intellijnostos")
 }
 
 kover {
@@ -135,7 +140,7 @@ kover {
                     "org.babelserver.intellijnostos.lsp.NostosCodeActionQuickFix*",
                     "org.babelserver.intellijnostos.lsp.NostosFileStatus*",
                     // Settings UI (a Configurable) — only exercised by opening
-                    // the settings dialog, not by unit tests.
+                    // the settings dialogue, not by unit tests.
                     "org.babelserver.intellijnostos.settings.NostosSettingsConfigurable*",
                 )
             }

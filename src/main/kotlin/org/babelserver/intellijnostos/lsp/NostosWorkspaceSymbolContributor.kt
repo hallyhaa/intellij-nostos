@@ -1,9 +1,3 @@
-// lsp4j deprecated SymbolInformation in favour of WorkspaceSymbol, but
-// nostos-lsp's workspace/symbol handler still returns Vec<SymbolInformation>
-// (the Either.left shape), so the client must read it. Suppress here until the
-// server migrates to the WorkspaceSymbol response.
-@file:Suppress("DEPRECATION")
-
 package org.babelserver.intellijnostos.lsp
 
 import com.intellij.navigation.ChooseByNameContributor
@@ -16,7 +10,8 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import org.eclipse.lsp4j.Location
-import org.eclipse.lsp4j.SymbolInformation
+import org.eclipse.lsp4j.Range
+import org.eclipse.lsp4j.WorkspaceSymbol
 import org.eclipse.lsp4j.WorkspaceSymbolParams
 import java.net.URI
 import java.util.concurrent.TimeUnit
@@ -24,12 +19,19 @@ import javax.swing.Icon
 
 /**
  * Backs IDEA's "Go to Symbol" (Ctrl+Alt+Shift+N) with nostos-lsp's
- * `workspace/symbol`. The server does a case-insensitive substring match over
- * functions/types across the project, so we forward the user's pattern straight
- * to it and turn each returned [SymbolInformation] into a navigable item.
+ * `workspace/symbol`. We fetch every symbol the server knows (an empty query
+ * means "all" in `workspace/symbol`), let the popup match the user's pattern
+ * against the names, and turn each [WorkspaceSymbol] into a navigable item.
  *
- * The query roundtrips are short, blocking calls made while the user types in
- * the Go to Symbol popup — the same convention completion uses.
+ * lsp4j hands the response over as `Either<List<SymbolInformation>,
+ * List<WorkspaceSymbol>>` and picks the side by whether the elements carry the
+ * legacy `deprecated` property, which nostos-lsp never sends, so in practice
+ * every response, from old servers (pre-LSP 3.17 SymbolInformation JSON) and
+ * new ones alike, arrives as the right side. The left type is deprecated in
+ * lsp4j and would be flagged by the plugin verifier.
+ *
+ * The query round-trips are short, blocking calls made while the user types in
+ * the `Go to Symbol` popup, the same convention as completion uses.
  */
 class NostosWorkspaceSymbolContributor : ChooseByNameContributor {
 
@@ -46,7 +48,7 @@ class NostosWorkspaceSymbolContributor : ChooseByNameContributor {
     // This contributor is an application-level singleton shared across projects,
     // so the cache must record which project it was populated for and only be
     // reused for that same project.
-    private class Cached(val project: Project, val symbols: List<SymbolInformation>, val atNanos: Long)
+    private class Cached(val project: Project, val symbols: List<WorkspaceSymbol>, val atNanos: Long)
 
     override fun getNames(project: Project, includeNonProjectItems: Boolean): Array<String> {
         return allSymbols(project).mapNotNull { it.name }.distinct().toTypedArray()
@@ -61,23 +63,23 @@ class NostosWorkspaceSymbolContributor : ChooseByNameContributor {
         // Filter the cached full set rather than issuing a second roundtrip.
         return allSymbols(project)
             .filter { it.name == name }
-            .mapNotNull { info -> toNavigationItem(project, info) }
+            .mapNotNull { symbol -> toNavigationItem(project, symbol) }
             .toTypedArray()
     }
 
     /** Every symbol the server knows, cached for [CACHE_TTL_NANOS] per session. */
-    private fun allSymbols(project: Project): List<SymbolInformation> {
+    private fun allSymbols(project: Project): List<WorkspaceSymbol> {
         val now = System.nanoTime()
         cache?.let { if (it.project == project && now - it.atNanos < CACHE_TTL_NANOS) return it.symbols }
-        val fresh = query(project, "")
+        val fresh = queryAllSymbols(project)
         cache = Cached(project, fresh, now)
         return fresh
     }
 
-    private fun query(project: Project, queryString: String): List<SymbolInformation> {
+    private fun queryAllSymbols(project: Project): List<WorkspaceSymbol> {
         val server = NostosLspServerManager.getInstance(project).activeServer ?: return emptyList()
         val response = try {
-            server.workspaceService.symbol(WorkspaceSymbolParams(queryString))
+            server.workspaceService.symbol(WorkspaceSymbolParams(""))
                 .get(SYMBOL_TIMEOUT_MS, TimeUnit.MILLISECONDS)
         } catch (e: ProcessCanceledException) {
             throw e
@@ -86,19 +88,18 @@ class NostosWorkspaceSymbolContributor : ChooseByNameContributor {
             null
         } ?: return emptyList()
 
-        // nostos-lsp returns the legacy SymbolInformation list (Either.left).
         return when {
-            response.isLeft -> response.left ?: emptyList()
+            response.isRight -> response.right ?: emptyList()
             else -> emptyList()
         }
     }
 
-    private fun toNavigationItem(project: Project, info: SymbolInformation): NavigationItem? {
-        val location: Location = info.location ?: return null
-        val vfile = resolveFile(location.uri) ?: return null
+    private fun toNavigationItem(project: Project, symbol: WorkspaceSymbol): NavigationItem? {
+        val location = symbol.resolvedLocation() ?: return null
+        val vFile = resolveFile(location.uri) ?: return null
         val line = location.range?.start?.line ?: 0
         val character = location.range?.start?.character ?: 0
-        return NostosSymbolNavigationItem(project, info.name ?: return null, vfile, line, character)
+        return NostosSymbolNavigationItem(project, symbol.name ?: return null, vFile, line, character)
     }
 
     private fun resolveFile(uri: String): VirtualFile? {
@@ -113,6 +114,20 @@ class NostosWorkspaceSymbolContributor : ChooseByNameContributor {
     companion object {
         private const val SYMBOL_TIMEOUT_MS = 2_000L
         private const val CACHE_TTL_NANOS = 3_000_000_000L // 3s — covers one popup session
+    }
+}
+
+/**
+ * The location of a [WorkspaceSymbol], as a full [Location]. LSP 3.17 lets a
+ * server send just a URI (the `WorkspaceSymbolLocation` right side, resolved
+ * lazily via `workspaceSymbol/resolve`). Nostos-lsp always sends the full
+ * left side, but a URI-only location still navigates to the top of its file.
+ */
+internal fun WorkspaceSymbol.resolvedLocation(): Location? {
+    val either = location ?: return null
+    return when {
+        either.isLeft -> either.left
+        else -> either.right?.uri?.let { uri -> Location(uri, Range()) }
     }
 }
 
