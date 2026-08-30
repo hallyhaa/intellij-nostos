@@ -5,6 +5,7 @@ import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx
 import com.intellij.openapi.project.Project
 import org.eclipse.lsp4j.*
 import org.eclipse.lsp4j.jsonrpc.messages.Either
@@ -66,11 +67,12 @@ class NostosLspClient(private val project: Project) : LanguageClient {
             path to status
         }
         log.debug("File status update: ${statuses.size} files")
-        // Only repaint the project tree when the statuses actually changed; a
-        // full ProjectView.refresh() on every notification is wasteful.
+        // Only repaint when the statuses actually changed.
         if (NostosFileStatusCache.getInstance(project).updateStatuses(statuses)) {
             ApplicationManager.getApplication().invokeLater({
                 ProjectView.getInstance(project).refresh()
+                // Editor tabs cache file icons, so recompute them
+                FileEditorManagerEx.getInstanceEx(project).refreshIcons()
             }, project.disposed)
         }
     }

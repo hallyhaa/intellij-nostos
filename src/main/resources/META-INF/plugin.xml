@@ -11,8 +11,14 @@
 
     <change-notes><![CDATA[
     <b>0.2.4</b>
+    <p><i>New features</i></p>
+    <ul>
+        <li>Commit Nostos files to the running live system</li>
+    </ul>
+    <p><i>Fixes</i></p>
     <ul>
         <li>Fix for Go to Symbol (Ctrl+Alt+Shift+N) returning no results</li>
+        <li>Removed use of deprecated methods in the API</li>
     </ul>
     <b>0.2.3</b>
     <ul>
@@ -156,6 +162,8 @@
             implementation="org.babelserver.intellijnostos.wizard.NostosNewProjectWizard"/>
         <projectViewNodeDecorator
             implementation="org.babelserver.intellijnostos.lsp.NostosFileStatusDecorator"/>
+        <fileIconPatcher
+            implementation="org.babelserver.intellijnostos.lsp.NostosFileStatusIconPatcher"/>
         <internalFileTemplate name="Nostos File"/>
     </extensions>
 
