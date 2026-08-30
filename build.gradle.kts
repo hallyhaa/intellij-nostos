@@ -1,12 +1,12 @@
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "2.3.21" // https://plugins.gradle.org/plugin/org.jetbrains.kotlin.jvm
+    id("org.jetbrains.kotlin.jvm") version "2.4.10" // https://plugins.gradle.org/plugin/org.jetbrains.kotlin.jvm
 
     // https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html#usage
-    id("org.jetbrains.intellij.platform") version "2.16.0" // https://plugins.gradle.org/plugin/org.jetbrains.intellij.platform
-    id("org.jetbrains.intellij.platform.grammarkit") version "2.16.0" // https://plugins.gradle.org/plugin/org.jetbrains.intellij.platform.grammarkit
+    id("org.jetbrains.intellij.platform") version "2.18.1" // https://plugins.gradle.org/plugin/org.jetbrains.intellij.platform
+    id("org.jetbrains.intellij.platform.grammarkit") version "2.18.1" // https://plugins.gradle.org/plugin/org.jetbrains.intellij.platform.grammarkit
 
-    id("org.jetbrains.kotlinx.kover") version "0.9.8" // https://central.sonatype.com/artifact/org.jetbrains.kotlinx/kover-gradle-plugin/versions
+    id("org.jetbrains.kotlinx.kover") version "0.9.9" // https://central.sonatype.com/artifact/org.jetbrains.kotlinx/kover-gradle-plugin/versions
     id("org.babelserver.gradle.test-logger") version "2.1.0" // https://plugins.gradle.org/plugin/org.babelserver.gradle.test-logger
 }
 
@@ -26,7 +26,7 @@ dependencies {
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
 
-    testImplementation(platform("org.junit:junit-bom:6.1.0"))
+    testImplementation(platform("org.junit:junit-bom:6.1.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("junit:junit:4.13.2") // For BasePlatformTestCase
 
@@ -96,13 +96,18 @@ tasks.named("compileJava") {
 
 tasks.test {
     useJUnitPlatform()
+    // Load only this plugin (plus the platform) in the test IDE. Since
+    // intellij-platform-gradle-plugin 2.18, the test runtime loads all
+    // bundled plugins, and the Vue plugin's LSP provider fails its
+    // static init in headless tests, making every test that touches VFS fail.
+    systemProperty("idea.load.plugins.id", "org.babelserver.intellijnostos")
 }
 
 kover {
     reports {
         filters {
             excludes {
-                // Coverage is measured on hand-written, unit-testable logic.
+                // Coverage is measured on handwritten, unit-testable logic.
                 // The classes below are IntelliJ extension points (annotators,
                 // contributors, handlers, providers, the startup ProjectActivity)
                 // or nostos-lsp transport/process wiring: they can only be
@@ -135,7 +140,7 @@ kover {
                     "org.babelserver.intellijnostos.lsp.NostosCodeActionQuickFix*",
                     "org.babelserver.intellijnostos.lsp.NostosFileStatus*",
                     // Settings UI (a Configurable) — only exercised by opening
-                    // the settings dialog, not by unit tests.
+                    // the settings dialogue, not by unit tests.
                     "org.babelserver.intellijnostos.settings.NostosSettingsConfigurable*",
                 )
             }

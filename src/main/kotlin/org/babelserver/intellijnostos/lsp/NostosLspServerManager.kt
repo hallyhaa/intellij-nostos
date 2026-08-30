@@ -68,7 +68,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
      * as one ordered batch.
      */
     private val pendingFullText = ConcurrentHashMap<VirtualFile, Document>()
-    private val pendingIncremental = ConcurrentHashMap<VirtualFile, MutableList<TextDocumentContentChangeEvent>>()
+    private val pendingIncremental = ConcurrentHashMap<VirtualFile, List<TextDocumentContentChangeEvent>>()
     private val changeDebounceLazy = lazy { Alarm(Alarm.ThreadToUse.SWING_THREAD, this) }
     private val changeDebounce by changeDebounceLazy
 
@@ -222,7 +222,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
                 if (incrementalSync) {
                     // Capture the ranged edit now (cheap); the range arithmetic
                     // needs this event's old/new fragments.
-                    pendingIncremental.getOrPut(file) { mutableListOf() }.add(incrementalChange(event))
+                    pendingIncremental.merge(file, listOf(incrementalChange(event))) { old, new -> old + new }
                 } else {
                     pendingFullText[file] = event.document
                 }
@@ -422,12 +422,23 @@ class NostosLspServerManager(private val project: Project) : Disposable {
      * log. Without this the OS pipe buffer can fill and block the server, and we
      * would lose any panic or crash output it writes. The loop ends on EOF when
      * the process dies, so it needs no explicit cancellation.
+     *
+     * Each line is logged at the level the server itself declares, so routine
+     * INFO chatter stays out of idea.log's warnings. Lines without a recognised
+     * level (panics, crash dumps) are kept at WARN so they stay visible.
      */
     private fun drainStderr(process: Process) {
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
                 process.errorStream.bufferedReader().useLines { lines ->
-                    lines.forEach { line -> log.warn("nostos-lsp stderr: $line") }
+                    lines.forEach { line ->
+                        val message = "nostos-lsp stderr: $line"
+                        when (stderrLevel(line)) {
+                            "TRACE", "DEBUG" -> log.debug(message)
+                            "INFO" -> log.info(message)
+                            else -> log.warn(message)
+                        }
+                    }
                 }
             } catch (_: IOException) {
                 // Stream closed as the process exited — expected on shutdown.
@@ -546,3 +557,9 @@ class NostosLspServerManager(private val project: Project) : Disposable {
 }
 
 private fun VirtualFile.toUri(): String = NostosLspUri.of(this)
+
+/** Matches the level token in an env_logger-formatted line: "[<timestamp> LEVEL target] message". */
+private val STDERR_LEVEL_REGEX = Regex("""^\[\S+ +(TRACE|DEBUG|INFO|WARN|ERROR) """)
+
+/** The log level nostos-lsp declared for a stderr [line], or null when the line has none. */
+internal fun stderrLevel(line: String): String? = STDERR_LEVEL_REGEX.find(line)?.groupValues?.get(1)
