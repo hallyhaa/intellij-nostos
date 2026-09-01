@@ -37,6 +37,7 @@ class NostosReferencesCodeVisionProvider : DaemonBoundCodeVisionProvider {
     override fun computeForEditor(editor: Editor, file: PsiFile): List<Pair<TextRange, TextCodeVisionEntry>> {
         if (file.fileType != NostosFileType) return emptyList()
         val virtualFile = file.virtualFile ?: return emptyList()
+        if (isNostosReplFile(virtualFile)) return emptyList()
         val server = NostosLspServerManager.getInstance(file.project).activeServer ?: return emptyList()
         val document = editor.document
         val uri = NostosLspUri.of(virtualFile)

@@ -54,4 +54,26 @@ class NostosLspFeaturesNoServerTest : BasePlatformTestCase() {
         val ctx = com.intellij.openapi.actionSystem.DataContext { null }
         assertNull(provider.getTarget(ctx))
     }
+
+    fun testCommitToLiveActionDisabledWithoutServer() {
+        myFixture.configureByText("a.nos", "fn main() = 1")
+        val presentation = myFixture.testAction(NostosCommitToLiveAction())
+        assertFalse(presentation.isEnabled)
+    }
+
+    fun testCommitToLiveActionDisabledForNonNostosFile() {
+        myFixture.configureByText("a.txt", "hello")
+        val presentation = myFixture.testAction(NostosCommitToLiveAction())
+        assertFalse(presentation.isEnabled)
+    }
+
+    fun testCommitAllToLiveActionDisabledWithoutServer() {
+        val presentation = myFixture.testAction(NostosCommitAllToLiveAction())
+        assertFalse(presentation.isEnabled)
+    }
+
+    fun testCacheActionsDisabledWithoutServer() {
+        assertFalse(myFixture.testAction(NostosBuildCacheAction()).isEnabled)
+        assertFalse(myFixture.testAction(NostosClearCacheAction()).isEnabled)
+    }
 }

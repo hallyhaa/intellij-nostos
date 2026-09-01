@@ -52,7 +52,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     private val openFiles = mutableSetOf<String>()
 
     /**
-     * Whether the server negotiated incremental document sync at initialize.
+     * Whether the server negotiated incremental document sync at initialise.
      * When true we send ranged edits; otherwise we resend the whole document.
      */
     private var incrementalSync = false
@@ -331,6 +331,47 @@ class NostosLspServerManager(private val project: Project) : Disposable {
         sendDidChange(file, listOf(TextDocumentContentChangeEvent(content)))
     }
 
+    /**
+     * Commits [file]'s current content to the running live system
+     * (workspace/executeCommand "nostos.commit"). (DidSave never
+     * touches the live system.)
+     *
+     * Pending debounced edits are flushed firstm so the server
+     * commits exactly what the editor shows. The server reports the
+     * outcome through window/showMessage, surfaced as a notification.
+     */
+    fun commitToLive(file: VirtualFile) {
+        if (!initialized) return
+        flushPendingChanges()
+        executeCommand("nostos.commit", listOf(file.toUri()))?.thenRun(::persistCacheAfterCommit)
+    }
+
+    /** Commits every open document to the running live system ("nostos.commitAll"). */
+    fun commitAllToLive() {
+        if (!initialized) return
+        flushPendingChanges()
+        executeCommand("nostos.commitAll", emptyList())?.thenRun(::persistCacheAfterCommit)
+    }
+
+    // TODO: Remove this once nostos-lsp persists the module cache itself after
+    //  a successful commit. Today the server only persists on shutdown and on
+    //  an explicit nostos.buildCache, so a crash loses everything committed
+    //  since startup. The persist is incremental (dirty modules only), so this
+    //  is cheap.
+    private fun persistCacheAfterCommit() {
+        executeCommand("nostos.buildCache", emptyList())
+    }
+
+    /**
+     * Sends a workspace/executeCommand request. Returns the future for the
+     * server's JSON response (a gson JsonElement for nostos-lsp's commands),
+     * or null when the server is not running.
+     */
+    internal fun executeCommand(command: String, arguments: List<Any>): java.util.concurrent.CompletableFuture<Any?>? {
+        if (!initialized) return null
+        return server?.workspaceService?.executeCommand(ExecuteCommandParams(command, arguments))
+    }
+
     private fun sendDidChange(file: VirtualFile, changes: List<TextDocumentContentChangeEvent>) {
         val uri = file.toUri()
         if (!initialized || uri !in openFiles) return
@@ -370,12 +411,19 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     val activeServer: LanguageServer? get() = if (initialized) server else null
 
     /**
+     * The directory nostos writes its caches into: the workspace root handed
+     * to nostos-lsp (the nostos.toml directory), falling back to the project
+     * base path when no server has run yet. Used by [NostosCachesInvalidator].
+     */
+    internal val cacheRoot: String? get() = lastLspRoot ?: project.basePath
+
+    /**
      * Stops the language server and starts it again. Internal plugin primitive
      * for situations where the server's state has drifted from reality —
      * crash recovery, configured-path or workspace-root changes, and so on.
      * Not exposed to users.
      *
-     * Runs synchronously (the start path blocks on initialization), so callers
+     * Runs synchronously (the start path blocks on initialisation), so callers
      * must invoke this off the EDT.
      *
      * @param newRoot when non-null, the workspace root to re-root the server at
@@ -433,10 +481,10 @@ class NostosLspServerManager(private val project: Project) : Disposable {
                 process.errorStream.bufferedReader().useLines { lines ->
                     lines.forEach { line ->
                         val message = "nostos-lsp stderr: $line"
-                        when (stderrLevel(line)) {
-                            "TRACE", "DEBUG" -> log.debug(message)
-                            "INFO" -> log.info(message)
-                            else -> log.warn(message)
+                        when (stderrRouting(line)) {
+                            StderrRouting.DEBUG -> log.debug(message)
+                            StderrRouting.INFO -> log.info(message)
+                            StderrRouting.WARN -> log.warn(message)
                         }
                     }
                 }
@@ -563,3 +611,25 @@ private val STDERR_LEVEL_REGEX = Regex("""^\[\S+ +(TRACE|DEBUG|INFO|WARN|ERROR) 
 
 /** The log level nostos-lsp declared for a stderr [line], or null when the line has none. */
 internal fun stderrLevel(line: String): String? = STDERR_LEVEL_REGEX.find(line)?.groupValues?.get(1)
+
+/** How one line of nostos-lsp's stderr should be logged in idea.log. */
+internal enum class StderrRouting { DEBUG, INFO, WARN }
+
+/**
+ * Classifies one line of nostos-lsp's stderr:
+ *
+ * - env_logger-formatted lines follow their own level token
+ *   (TRACE/DEBUG → DEBUG, INFO → INFO, WARN/ERROR → WARN);
+ * - the engine's informal progress prints ("LSP: …") carry no level token but
+ *   are routine, so they go to INFO;
+ * - anything else (panics, crash dumps) must stay visible: WARN.
+ *
+ * TODO: Remove the "LSP: " prefix rule once the engine routes those prints
+ *  through the logging framework instead of raw eprintln.
+ */
+internal fun stderrRouting(line: String): StderrRouting = when (stderrLevel(line)) {
+    "TRACE", "DEBUG" -> StderrRouting.DEBUG
+    "INFO" -> StderrRouting.INFO
+    null -> if (line.startsWith("LSP: ")) StderrRouting.INFO else StderrRouting.WARN
+    else -> StderrRouting.WARN
+}

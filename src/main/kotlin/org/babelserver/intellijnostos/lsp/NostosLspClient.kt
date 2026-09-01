@@ -1,8 +1,11 @@
 package org.babelserver.intellijnostos.lsp
 
 import com.intellij.ide.projectView.ProjectView
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx
 import com.intellij.openapi.project.Project
 import org.eclipse.lsp4j.*
 import org.eclipse.lsp4j.jsonrpc.messages.Either
@@ -36,6 +39,24 @@ class NostosLspClient(private val project: Project) : LanguageClient {
 
     override fun showMessage(params: MessageParams) {
         log.info("LSP message [${params.type}]: ${params.message}")
+        // window/showMessage is the server asking for a user-visible message.
+        // Nostos-lsp uses it to report executeCommand outcomes (live commits,
+        // cache maintenance), so show it as a notification balloon.
+        val message = params.message ?: return
+        // TODO: Remove along with persistCacheAfterCommit once nostos-lsp
+        //  persists on its own: the cache persist chained after every commit
+        //  would otherwise pop this balloon each time. The log line above
+        //  still records it.
+        if (params.type == MessageType.Info && message.startsWith("Built cache:")) return
+        val type = when (params.type) {
+            MessageType.Error -> NotificationType.ERROR
+            MessageType.Warning -> NotificationType.WARNING
+            else -> NotificationType.INFORMATION
+        }
+        NotificationGroupManager.getInstance()
+            .getNotificationGroup("Nostos")
+            .createNotification(message, type)
+            .notify(project)
     }
 
     override fun showMessageRequest(params: ShowMessageRequestParams) = null
@@ -51,13 +72,38 @@ class NostosLspClient(private val project: Project) : LanguageClient {
             path to status
         }
         log.debug("File status update: ${statuses.size} files")
-        // Only repaint the project tree when the statuses actually changed; a
-        // full ProjectView.refresh() on every notification is wasteful.
+        // Only repaint when the statuses actually changed.
         if (NostosFileStatusCache.getInstance(project).updateStatuses(statuses)) {
+            val hasDirty = statuses.any { it.second == "dirty" }
             ApplicationManager.getApplication().invokeLater({
                 ProjectView.getInstance(project).refresh()
+                // Editor tabs cache file icons, so recompute them
+                FileEditorManagerEx.getInstanceEx(project).refreshIcons()
+                if (hasDirty) showLiveCommitGotItOnce()
             }, project.disposed)
         }
+    }
+
+    /**
+     * One-time discovery balloon the first time a file goes dirty against the
+     * live system: the blue-dot badge is new to users, and the commit shortcut
+     * is not discoverable on its own. GotItTooltip remembers having been shown
+     * (per id, across restarts), so the guard flag only avoids repeated work.
+     */
+    private var liveCommitGotItRequested = false
+
+    private fun showLiveCommitGotItOnce() {
+        if (liveCommitGotItRequested) return
+        liveCommitGotItRequested = true
+        val editor = com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project).selectedTextEditor ?: return
+        com.intellij.ui.GotItTooltip(
+            "nostos.live.commit",
+            "Files with a blue dot have changes the running live system has not seen yet. " +
+                "Commit the file with Ctrl+Alt+C, or use Tools | Nostos.",
+            NostosLspServerManager.getInstance(project),
+        )
+            .withHeader("Commit to the live system")
+            .show(editor.component, com.intellij.ui.GotItTooltip.BOTTOM_MIDDLE)
     }
 
     override fun logMessage(params: MessageParams) {
