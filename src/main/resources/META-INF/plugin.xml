@@ -119,6 +119,8 @@
         <lang.formatter
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosFormattingModelBuilder"/>
+        <formattingService
+            implementation="org.babelserver.intellijnostos.lsp.NostosLspFormattingService"/>
         <!--suppress PluginXmlI18n -->
         <projectConfigurable
             parentId="language"
