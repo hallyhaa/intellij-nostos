@@ -481,14 +481,10 @@ class NostosLspServerManager(private val project: Project) : Disposable {
                 process.errorStream.bufferedReader().useLines { lines ->
                     lines.forEach { line ->
                         val message = "nostos-lsp stderr: $line"
-                        when (stderrLevel(line)) {
-                            "TRACE", "DEBUG" -> log.debug(message)
-                            "INFO" -> log.info(message)
-                            // The engine's informal progress prints ("LSP:
-                            // Removing old version before update: …") have no
-                            // level token; they are routine, not warnings.
-                            null -> if (line.startsWith("LSP: ")) log.info(message) else log.warn(message)
-                            else -> log.warn(message)
+                        when (stderrRouting(line)) {
+                            StderrRouting.DEBUG -> log.debug(message)
+                            StderrRouting.INFO -> log.info(message)
+                            StderrRouting.WARN -> log.warn(message)
                         }
                     }
                 }
@@ -615,3 +611,25 @@ private val STDERR_LEVEL_REGEX = Regex("""^\[\S+ +(TRACE|DEBUG|INFO|WARN|ERROR) 
 
 /** The log level nostos-lsp declared for a stderr [line], or null when the line has none. */
 internal fun stderrLevel(line: String): String? = STDERR_LEVEL_REGEX.find(line)?.groupValues?.get(1)
+
+/** How one line of nostos-lsp's stderr should be logged in idea.log. */
+internal enum class StderrRouting { DEBUG, INFO, WARN }
+
+/**
+ * Classifies one line of nostos-lsp's stderr:
+ *
+ * - env_logger-formatted lines follow their own level token
+ *   (TRACE/DEBUG → DEBUG, INFO → INFO, WARN/ERROR → WARN);
+ * - the engine's informal progress prints ("LSP: …") carry no level token but
+ *   are routine, so they go to INFO;
+ * - anything else (panics, crash dumps) must stay visible: WARN.
+ *
+ * TODO: Remove the "LSP: " prefix rule once the engine routes those prints
+ *  through the logging framework instead of raw eprintln.
+ */
+internal fun stderrRouting(line: String): StderrRouting = when (stderrLevel(line)) {
+    "TRACE", "DEBUG" -> StderrRouting.DEBUG
+    "INFO" -> StderrRouting.INFO
+    null -> if (line.startsWith("LSP: ")) StderrRouting.INFO else StderrRouting.WARN
+    else -> StderrRouting.WARN
+}
