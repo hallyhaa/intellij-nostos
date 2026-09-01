@@ -71,4 +71,9 @@ class NostosLspFeaturesNoServerTest : BasePlatformTestCase() {
         val presentation = myFixture.testAction(NostosCommitAllToLiveAction())
         assertFalse(presentation.isEnabled)
     }
+
+    fun testCacheActionsDisabledWithoutServer() {
+        assertFalse(myFixture.testAction(NostosBuildCacheAction()).isEnabled)
+        assertFalse(myFixture.testAction(NostosClearCacheAction()).isEnabled)
+    }
 }

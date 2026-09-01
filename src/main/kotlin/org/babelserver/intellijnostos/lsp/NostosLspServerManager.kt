@@ -343,14 +343,23 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     fun commitToLive(file: VirtualFile) {
         if (!initialized) return
         flushPendingChanges()
-        executeCommand("nostos.commit", listOf(file.toUri()))
+        executeCommand("nostos.commit", listOf(file.toUri()))?.thenRun(::persistCacheAfterCommit)
     }
 
     /** Commits every open document to the running live system ("nostos.commitAll"). */
     fun commitAllToLive() {
         if (!initialized) return
         flushPendingChanges()
-        executeCommand("nostos.commitAll", emptyList())
+        executeCommand("nostos.commitAll", emptyList())?.thenRun(::persistCacheAfterCommit)
+    }
+
+    // TODO: Remove this once nostos-lsp persists the module cache itself after
+    //  a successful commit. Today the server only persists on shutdown and on
+    //  an explicit nostos.buildCache, so a crash loses everything committed
+    //  since startup. The persist is incremental (dirty modules only), so this
+    //  is cheap.
+    private fun persistCacheAfterCommit() {
+        executeCommand("nostos.buildCache", emptyList())
     }
 
     /**
@@ -360,9 +369,7 @@ class NostosLspServerManager(private val project: Project) : Disposable {
      */
     internal fun executeCommand(command: String, arguments: List<Any>): java.util.concurrent.CompletableFuture<Any?>? {
         if (!initialized) return null
-        @Suppress("UNCHECKED_CAST")
         return server?.workspaceService?.executeCommand(ExecuteCommandParams(command, arguments))
-            as java.util.concurrent.CompletableFuture<Any?>?
     }
 
     private fun sendDidChange(file: VirtualFile, changes: List<TextDocumentContentChangeEvent>) {
@@ -402,6 +409,13 @@ class NostosLspServerManager(private val project: Project) : Disposable {
     }
 
     val activeServer: LanguageServer? get() = if (initialized) server else null
+
+    /**
+     * The directory nostos writes its caches into: the workspace root handed
+     * to nostos-lsp (the nostos.toml directory), falling back to the project
+     * base path when no server has run yet. Used by [NostosCachesInvalidator].
+     */
+    internal val cacheRoot: String? get() = lastLspRoot ?: project.basePath
 
     /**
      * Stops the language server and starts it again. Internal plugin primitive
@@ -470,6 +484,10 @@ class NostosLspServerManager(private val project: Project) : Disposable {
                         when (stderrLevel(line)) {
                             "TRACE", "DEBUG" -> log.debug(message)
                             "INFO" -> log.info(message)
+                            // The engine's informal progress prints ("LSP:
+                            // Removing old version before update: …") have no
+                            // level token; they are routine, not warnings.
+                            null -> if (line.startsWith("LSP: ")) log.info(message) else log.warn(message)
                             else -> log.warn(message)
                         }
                     }

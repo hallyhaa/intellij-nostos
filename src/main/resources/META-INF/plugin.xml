@@ -182,6 +182,11 @@
             implementationClass="org.babelserver.intellijnostos.lsp.NostosReplCompletionConfidence"
             order="first"/>
         <internalFileTemplate name="Nostos File"/>
+        <cachesInvalidator
+            implementation="org.babelserver.intellijnostos.lsp.NostosCachesInvalidator"/>
+        <tipAndTrick fileName="NostosLiveCommit.html"/>
+        <tipAndTrick fileName="NostosRepl.html"/>
+        <tipAndTrick fileName="NostosCache.html"/>
     </extensions>
 
     <actions>
@@ -195,12 +200,16 @@
             <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewDir"/>
         </action>
         <!--suppress PluginXmlI18n -->
+        <group id="Nostos.Tools" text="Nostos" popup="true" icon="/icons/nostos.svg">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </group>
+        <!--suppress PluginXmlI18n -->
         <action
             id="Nostos.CommitToLive"
             class="org.babelserver.intellijnostos.lsp.NostosCommitToLiveAction"
             text="Commit File to Live System"
             description="Compile the current Nostos file into the running live system">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="Nostos.Tools" anchor="last"/>
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt C"/>
         </action>
@@ -210,7 +219,23 @@
             class="org.babelserver.intellijnostos.lsp.NostosCommitAllToLiveAction"
             text="Commit All Open Files to Live System"
             description="Compile all open Nostos files into the running live system">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="Nostos.Tools" anchor="last"/>
+        </action>
+        <!--suppress PluginXmlI18n -->
+        <action
+            id="Nostos.BuildCache"
+            class="org.babelserver.intellijnostos.lsp.NostosBuildCacheAction"
+            text="Build Module Cache"
+            description="Persist the compiled Nostos modules to the on-disk cache, for faster engine startup">
+            <add-to-group group-id="Nostos.Tools" anchor="last"/>
+        </action>
+        <!--suppress PluginXmlI18n -->
+        <action
+            id="Nostos.ClearCache"
+            class="org.babelserver.intellijnostos.lsp.NostosClearCacheAction"
+            text="Clear Module Cache"
+            description="Delete the Nostos module caches, forcing a full recompile on next engine startup">
+            <add-to-group group-id="Nostos.Tools" anchor="last"/>
         </action>
     </actions>
 </idea-plugin>

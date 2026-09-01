@@ -138,6 +138,8 @@ kover {
                     "org.babelserver.intellijnostos.lsp.NostosCalleeTreeStructure*",
                     "org.babelserver.intellijnostos.lsp.NostosCallerTreeStructure*",
                     "org.babelserver.intellijnostos.lsp.NostosCodeActionQuickFix*",
+                    "org.babelserver.intellijnostos.lsp.NostosCacheAction*",
+                    "org.babelserver.intellijnostos.lsp.NostosCachesInvalidator*",
                     "org.babelserver.intellijnostos.lsp.NostosFileStatus*",
                     // REPL tool window UI and its server-bound glue; the
                     // response parsers in NostosReplResponses.kt stay covered.
