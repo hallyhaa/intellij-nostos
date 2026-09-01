@@ -15,11 +15,14 @@
     <ul>
         <li>Commit Nostos files to the running live system</li>
         <li>Nostos REPL tool window: evaluate expressions in the running live system</li>
+        <li>Module cache: Build/Clear Module Cache in Tools | Nostos and
+            a "Clear Nostos module caches" option in File | Invalidate Caches</li>
     </ul>
     <p><i>Fixes</i></p>
     <ul>
         <li>Fix for Go to Symbol (Ctrl+Alt+Shift+N) returning no results</li>
         <li>Removed use of deprecated methods in the API</li>
+        <li>Fix for automatic module cache persisting after live commits</li>
     </ul>
     <b>0.2.3</b>
     <ul>
