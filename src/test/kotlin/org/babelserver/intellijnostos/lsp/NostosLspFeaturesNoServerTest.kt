@@ -76,4 +76,17 @@ class NostosLspFeaturesNoServerTest : BasePlatformTestCase() {
         assertFalse(myFixture.testAction(NostosBuildCacheAction()).isEnabled)
         assertFalse(myFixture.testAction(NostosClearCacheAction()).isEnabled)
     }
+
+    fun testGotoDeclarationHandlerNullWithoutServer() {
+        val file = myFixture.configureByText("a.nos", "fn main() = unknown_symbol")
+        val offset = file.text.indexOf("unknown_symbol") + 2
+        val handler = NostosLspGotoDeclarationHandler()
+        assertNull(handler.getGotoDeclarationTargets(file.findElementAt(offset), offset, myFixture.editor))
+    }
+
+    fun testGotoDeclarationHandlerNullForNonNostosFile() {
+        val file = myFixture.configureByText("a.txt", "hello")
+        val handler = NostosLspGotoDeclarationHandler()
+        assertNull(handler.getGotoDeclarationTargets(file.findElementAt(1), 1, myFixture.editor))
+    }
 }

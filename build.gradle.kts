@@ -128,6 +128,9 @@ kover {
                     "org.babelserver.intellijnostos.lsp.NostosLspStartupActivity*",
                     "org.babelserver.intellijnostos.lsp.NostosLspProgressTracker*",
                     "org.babelserver.intellijnostos.lsp.NostosLspRenameHandler*",
+                    // Exact name (no wildcard): the file's top-level
+                    // definitionLocations parser stays covered.
+                    "org.babelserver.intellijnostos.lsp.NostosLspGotoDeclarationHandler",
                     "org.babelserver.intellijnostos.lsp.NostosWorkspaceSymbolContributor*",
                     "org.babelserver.intellijnostos.lsp.NostosSymbolNavigationItem*",
                     "org.babelserver.intellijnostos.lsp.NostosWorkspaceEdits*",

@@ -140,6 +140,8 @@
             implementationClass="org.babelserver.intellijnostos.NostosSemanticHighlighter"/>
         <highlightUsagesHandlerFactory
             implementation="org.babelserver.intellijnostos.lsp.NostosHighlightUsagesHandlerFactory"/>
+        <gotoDeclarationHandler
+            implementation="org.babelserver.intellijnostos.lsp.NostosLspGotoDeclarationHandler"/>
         <gotoSymbolContributor
             implementation="org.babelserver.intellijnostos.lsp.NostosWorkspaceSymbolContributor"/>
         <codeInsight.daemonBoundCodeVisionProvider
