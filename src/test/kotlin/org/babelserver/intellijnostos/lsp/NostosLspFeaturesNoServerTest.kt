@@ -76,4 +76,24 @@ class NostosLspFeaturesNoServerTest : BasePlatformTestCase() {
         assertFalse(myFixture.testAction(NostosBuildCacheAction()).isEnabled)
         assertFalse(myFixture.testAction(NostosClearCacheAction()).isEnabled)
     }
+
+    fun testGotoDeclarationHandlerNullWithoutServer() {
+        val file = myFixture.configureByText("a.nos", "fn main() = unknown_symbol")
+        val offset = file.text.indexOf("unknown_symbol") + 2
+        val handler = NostosLspGotoDeclarationHandler()
+        assertNull(handler.getGotoDeclarationTargets(file.findElementAt(offset), offset, myFixture.editor))
+    }
+
+    fun testGotoDeclarationHandlerNullForNonNostosFile() {
+        val file = myFixture.configureByText("a.txt", "hello")
+        val handler = NostosLspGotoDeclarationHandler()
+        assertNull(handler.getGotoDeclarationTargets(file.findElementAt(1), 1, myFixture.editor))
+    }
+
+    fun testLspFormattingServiceDeclinesWithoutServer() {
+        // Declining hands Reformat Code to the PSI formatter, so formatting
+        // keeps working offline.
+        val file = myFixture.configureByText("a.nos", "fn main() = 1")
+        assertFalse(NostosLspFormattingService().canFormat(file))
+    }
 }

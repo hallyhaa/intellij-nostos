@@ -119,6 +119,8 @@
         <lang.formatter
             language="Nostos"
             implementationClass="org.babelserver.intellijnostos.NostosFormattingModelBuilder"/>
+        <formattingService
+            implementation="org.babelserver.intellijnostos.lsp.NostosLspFormattingService"/>
         <!--suppress PluginXmlI18n -->
         <projectConfigurable
             parentId="language"
@@ -140,6 +142,8 @@
             implementationClass="org.babelserver.intellijnostos.NostosSemanticHighlighter"/>
         <highlightUsagesHandlerFactory
             implementation="org.babelserver.intellijnostos.lsp.NostosHighlightUsagesHandlerFactory"/>
+        <gotoDeclarationHandler
+            implementation="org.babelserver.intellijnostos.lsp.NostosLspGotoDeclarationHandler"/>
         <gotoSymbolContributor
             implementation="org.babelserver.intellijnostos.lsp.NostosWorkspaceSymbolContributor"/>
         <codeInsight.daemonBoundCodeVisionProvider
