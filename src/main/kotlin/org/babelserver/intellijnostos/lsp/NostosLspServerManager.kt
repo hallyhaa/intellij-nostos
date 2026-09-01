@@ -353,8 +353,16 @@ class NostosLspServerManager(private val project: Project) : Disposable {
         executeCommand("nostos.commitAll", emptyList())
     }
 
-    private fun executeCommand(command: String, arguments: List<Any>) {
-        server?.workspaceService?.executeCommand(ExecuteCommandParams(command, arguments))
+    /**
+     * Sends a workspace/executeCommand request. Returns the future for the
+     * server's JSON response (a gson JsonElement for nostos-lsp's commands),
+     * or null when the server is not running.
+     */
+    internal fun executeCommand(command: String, arguments: List<Any>): java.util.concurrent.CompletableFuture<Any?>? {
+        if (!initialized) return null
+        @Suppress("UNCHECKED_CAST")
+        return server?.workspaceService?.executeCommand(ExecuteCommandParams(command, arguments))
+            as java.util.concurrent.CompletableFuture<Any?>?
     }
 
     private fun sendDidChange(file: VirtualFile, changes: List<TextDocumentContentChangeEvent>) {

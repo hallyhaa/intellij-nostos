@@ -35,6 +35,7 @@ class NostosExternalAnnotator : ExternalAnnotator<NostosExternalAnnotator.Info, 
     override fun collectInformation(file: PsiFile, editor: Editor, hasErrors: Boolean): Info? {
         if (file !is NostosFile) return null
         val virtualFile = file.virtualFile ?: return null
+        if (org.babelserver.intellijnostos.lsp.isNostosReplFile(virtualFile)) return null
         val uri = NostosLspUri.of(virtualFile)
         val diagnosticsKey = NostosDiagnosticsCache.getInstance(file.project).cache[uri]?.hashCode() ?: 0
         return Info(virtualFile.path, uri, editor.document, file.project, diagnosticsKey)

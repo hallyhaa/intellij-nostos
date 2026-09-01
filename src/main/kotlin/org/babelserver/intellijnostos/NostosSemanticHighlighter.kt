@@ -33,6 +33,7 @@ class NostosSemanticHighlighter :
     override fun collectInformation(file: PsiFile, editor: Editor, hasErrors: Boolean): Info? {
         if (file !is NostosFile) return null
         val virtualFile = file.virtualFile ?: return null
+        if (org.babelserver.intellijnostos.lsp.isNostosReplFile(virtualFile)) return null
         val uri = NostosLspUri.of(virtualFile)
         return Info(uri, editor.document, file.project, editor.document.modificationStamp)
     }

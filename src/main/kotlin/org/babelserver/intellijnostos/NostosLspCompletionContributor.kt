@@ -53,6 +53,7 @@ class NostosLspCompletionContributor : CompletionContributor() {
                 ?.activeServer ?: return
 
             val file = parameters.originalFile.virtualFile ?: return
+            if (org.babelserver.intellijnostos.lsp.isNostosReplFile(file)) return
             val document = parameters.originalFile.viewProvider.document ?: return
 
             // Only trigger LSP completion after a dot (member access)

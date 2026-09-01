@@ -35,6 +35,7 @@ class NostosInlayHintsProvider : InlayHintsProvider {
 
     override fun createCollector(file: PsiFile, editor: Editor): InlayHintsCollector? {
         if (file.fileType != NostosFileType) return null
+        if (org.babelserver.intellijnostos.lsp.isNostosReplFile(file.virtualFile)) return null
         return NostosCollector(editor)
     }
 

@@ -164,6 +164,21 @@
             implementation="org.babelserver.intellijnostos.lsp.NostosFileStatusDecorator"/>
         <fileIconPatcher
             implementation="org.babelserver.intellijnostos.lsp.NostosFileStatusIconPatcher"/>
+        <!--suppress PluginXmlI18n -->
+        <toolWindow
+            id="Nostos REPL"
+            anchor="bottom"
+            icon="/icons/nostos.svg"
+            factoryClass="org.babelserver.intellijnostos.lsp.NostosReplToolWindowFactory"/>
+        <scratch.rootType
+            implementation="org.babelserver.intellijnostos.lsp.NostosReplRootType"/>
+        <completion.contributor
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.lsp.NostosReplCompletionContributor"/>
+        <completion.confidence
+            language="Nostos"
+            implementationClass="org.babelserver.intellijnostos.lsp.NostosReplCompletionConfidence"
+            order="first"/>
         <internalFileTemplate name="Nostos File"/>
     </extensions>
 
