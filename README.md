@@ -20,6 +20,7 @@ lightweight concurrency, pattern matching, and non-blocking I/O.
 - **Inlay type hints** — inferred types shown inline
 - **Rename refactoring** — scope-aware rename via `nostos-lsp` (Shift+F6)
 - **Code formatting** — automatic indentation and spacing (Ctrl+Alt+L)
+- **REPL** — a Nostos REPL tool window evaluating expressions in the running live system
 - **Run configurations** — run Nostos programs directly from the IDE
 - **New Project wizard** — scaffold a Nostos project, with a New Nostos File action
 - **Structure view** — outline of declarations, modules, types, and traits
@@ -42,7 +43,7 @@ Search for "Nostos" in **Settings → Plugins → Marketplace**.
 
 ## Supported file types
 
-`.nos` files are automatically recognized as Nostos source files.
+`.nos` files are automatically recognised as Nostos source files.
 
 ## Requirements
 

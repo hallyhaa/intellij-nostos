@@ -14,6 +14,7 @@
     <p><i>New features</i></p>
     <ul>
         <li>Commit Nostos files to the running live system</li>
+        <li>Nostos REPL tool window: evaluate expressions in the running live system</li>
     </ul>
     <p><i>Fixes</i></p>
     <ul>
