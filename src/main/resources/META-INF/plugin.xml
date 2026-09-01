@@ -169,6 +169,7 @@
             id="Nostos REPL"
             anchor="bottom"
             icon="/icons/nostos.svg"
+            canCloseContents="true"
             factoryClass="org.babelserver.intellijnostos.lsp.NostosReplToolWindowFactory"/>
         <scratch.rootType
             implementation="org.babelserver.intellijnostos.lsp.NostosReplRootType"/>

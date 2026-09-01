@@ -48,6 +48,20 @@ internal fun isNostosReplFile(file: com.intellij.openapi.vfs.VirtualFile?): Bool
 class NostosReplToolWindowFactory : ToolWindowFactory, DumbAware {
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
+        // A "+" button on the tab strip opens another REPL, terminal-style.
+        (toolWindow as? com.intellij.openapi.wm.ex.ToolWindowEx)?.setTabActions(object : com.intellij.openapi.project.DumbAwareAction(
+            "New Nostos REPL", "Open another REPL tab", com.intellij.icons.AllIcons.General.Add,
+        ) {
+            override fun actionPerformed(e: com.intellij.openapi.actionSystem.AnActionEvent) =
+                openNewConsole(project, toolWindow)
+        })
+        // Closing the last tab with the tab's X leaves the window empty and the
+        // factory is never called again; keep a fresh console ready instead.
+        toolWindow.contentManager.addContentManagerListener(object : com.intellij.ui.content.ContentManagerListener {
+            override fun contentRemoved(event: com.intellij.ui.content.ContentManagerEvent) {
+                if (toolWindow.contentManager.contentCount == 0) openNewConsole(project, toolWindow)
+            }
+        })
         openNewConsole(project, toolWindow)
     }
 
@@ -73,20 +87,6 @@ class NostosReplToolWindowFactory : ToolWindowFactory, DumbAware {
         }
         console.prompt = "nostos>"
         console.virtualFile.putUserData(NOSTOS_REPL_FILE, true)
-
-        // Bash-style Ctrl+D: terminate this REPL session for real (dispose the
-        // console) and close the window. The next open gets a fresh console;
-        // persisted history makes Up-arrow recall earlier sessions' lines.
-        object : com.intellij.openapi.project.DumbAwareAction() {
-            override fun actionPerformed(e: com.intellij.openapi.actionSystem.AnActionEvent) {
-                toolWindow.contentManager.removeAllContents(true)
-                openNewConsole(project, toolWindow)
-                toolWindow.hide()
-            }
-        }.registerCustomShortcutSet(
-            com.intellij.openapi.actionSystem.CustomShortcutSet.fromString("control D"),
-            console.component,
-        )
 
         // Bash-style Ctrl+C: abandon the current line — echo it with a ^C into
         // history and present a fresh prompt. Only when nothing is selected, so
@@ -118,12 +118,35 @@ class NostosReplToolWindowFactory : ToolWindowFactory, DumbAware {
 
         NostosLspServerManager.getInstance(project).startIfNeeded(notifyIfMissing = false)
 
-        val content = ContentFactory.getInstance().createContent(console.component, "", false)
-        // Disposing the content (Ctrl+D, window close) disposes the console.
+        val contentManager = toolWindow.contentManager
+        val content = ContentFactory.getInstance().createContent(
+            console.component,
+            "REPL ${nextTabNumber(contentManager)}",
+            false,
+        )
+        // Disposing the content (Ctrl+D, tab close, window close) disposes the console.
         content.setDisposer(console)
-        // Focus lands at the prompt when the tool window opens.
+        // Focus lands at the prompt when the tab is selected.
         content.preferredFocusableComponent = console.consoleEditor.contentComponent
-        toolWindow.contentManager.addContent(content)
+        contentManager.addContent(content)
+        contentManager.setSelectedContent(content, true)
+
+        // Bash-style Ctrl+D: terminate this REPL session for real (dispose it).
+        // With more tabs open, only this tab closes; ending the last session
+        // also hides the window, like exiting the last shell in a terminal.
+        // Persisted history makes Up-arrow recall earlier sessions' lines.
+        object : com.intellij.openapi.project.DumbAwareAction() {
+            override fun actionPerformed(e: com.intellij.openapi.actionSystem.AnActionEvent) {
+                val wasLastTab = contentManager.contentCount == 1
+                // With no contents left, the contentRemoved listener opens a
+                // fresh console for the next time the window is shown.
+                contentManager.removeContent(content, true)
+                if (wasLastTab) toolWindow.hide()
+            }
+        }.registerCustomShortcutSet(
+            com.intellij.openapi.actionSystem.CustomShortcutSet.fromString("control D"),
+            console.component,
+        )
 
         // After component init: accessing console.component above ran the
         // platform's setupLanguageConsoleEditor, which sets its own
@@ -132,6 +155,14 @@ class NostosReplToolWindowFactory : ToolWindowFactory, DumbAware {
         // output line, bash-style.
         console.historyViewer.settings.additionalLinesCount = 0
         console.consoleEditor.settings.additionalLinesCount = 0
+    }
+
+    /** Smallest number not already taken by an open "REPL n" tab. */
+    private fun nextTabNumber(contentManager: com.intellij.ui.content.ContentManager): Int {
+        val taken = contentManager.contents
+            .mapNotNull { it.displayName?.removePrefix("REPL ")?.toIntOrNull() }
+            .toSet()
+        return generateSequence(1) { it + 1 }.first { it !in taken }
     }
 }
 
